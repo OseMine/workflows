@@ -1,0 +1,63 @@
+# Thin release workflow — copy into any project, set `language` + optional
+# `build` flags. Everything (meta/semver, builds, security gate, AI release
+# notes, release + SHA256SUMS) lives in the shared `release-all` action and
+# updates automatically at @main.
+#
+# Primary trigger: workflow_dispatch (Actions tab → Run workflow).
+# Version is auto-detected from pubspec.yaml / Cargo.toml / package.json, or
+# override via the `version` input. Tag push (`v*`) remains supported as a
+# secondary trigger.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 1.2.3). Empty = auto-detect from project files"
+        required: false
+        type: string
+      prerelease:
+        description: "Mark as prerelease"
+        required: false
+        type: boolean
+        default: false
+      draft:
+        description: "Create as draft"
+        required: false
+        type: boolean
+        default: false
+      build:
+        description: "Comma-separated build flags: cargo, tauri, plugin, installer, python, android, ios, flutter, all"
+        required: false
+        type: string
+        default: all
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: YOUR_ORG/gha-workflows/.github/actions/release-all@main
+        with:
+          language: rust            # auto | rust | tauri | node | python | flutter | kmp
+          build: ${{ github.event.inputs.build || 'all' }}
+          release-tag: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || '' }}
+          min-rating: "7"           # security gate 0-10; 0 disables
+          draft: ${{ github.event.inputs.draft || 'false' }}
+          prerelease: ${{ github.event.inputs.prerelease || 'false' }}
+          provider: opencode        # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
+          model: deepseek-v4-flash-free
+          api-key: ${{ secrets.OPENCODE_API_KEY }}
+          fallback-provider: opencode
+          fallback-model: gpt-4o-mini
+          fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}

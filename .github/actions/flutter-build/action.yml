@@ -1,0 +1,127 @@
+name: Flutter build
+description: Build Flutter artifacts (APK universal + split-per-abi, AAB, and/or unsigned IPA) and package release artifacts with checksums and a release manifest.
+
+inputs:
+  build-apk:
+    description: Build universal + split-per-abi APKs (true/false)
+    required: false
+    default: "false"
+  build-aab:
+    description: Build Android App Bundle (true/false)
+    required: false
+    default: "false"
+  build-ipa:
+    description: Build unsigned iOS IPA (true/false, needs macOS runner)
+    required: false
+    default: "false"
+  split-per-abi:
+    description: Build ABI-specific APKs (true/false)
+    required: false
+    default: "true"
+  artifact-prefix:
+    description: Naming prefix for packaged artifacts
+    required: false
+    default: "app"
+  release-tag:
+    description: Release tag used in artifact names (e.g. v1.2.0)
+    required: false
+    default: ""
+  java-version:
+    description: JDK version for Android builds
+    required: false
+    default: "17"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Java (Android builds)
+      if: inputs.build-apk == 'true' || inputs.build-aab == 'true'
+      uses: actions/setup-java@v6
+      with:
+        distribution: zulu
+        java-version: ${{ inputs.java-version }}
+
+    - name: Setup Flutter
+      uses: YOUR_ORG/gha-workflows/.github/actions/flutter-setup@main
+      with:
+        native-cache-name: android
+        native-cache-path: ~/.cache/flutter
+
+    - name: Cache Gradle
+      if: inputs.build-apk == 'true' || inputs.build-aab == 'true'
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Build Android APKs
+      if: inputs.build-apk == 'true'
+      run: |
+        flutter build apk --release
+        mkdir -p universal_apk
+        cp build/app/outputs/flutter-apk/app-release.apk universal_apk/
+        if [ "${{ inputs.split-per-abi }}" = "true" ]; then
+          flutter build apk --release --split-per-abi
+        fi
+
+    - name: Build Android AAB
+      if: inputs.build-aab == 'true'
+      run: flutter build appbundle --release
+
+    - name: Build iOS IPA (no codesign)
+      if: inputs.build-ipa == 'true'
+      run: flutter build ios --release --no-codesign
+
+    - name: Prepare release artifacts
+      shell: bash
+      run: |
+        set -euo pipefail
+        TAG="${{ inputs.release-tag }}"
+        PREFIX="${{ inputs.artifact-prefix }}"
+        if [ -z "$TAG" ]; then
+          TAG="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)"
+          TAG="v${TAG}"
+        fi
+        mkdir -p release_assets
+
+        if [ "${{ inputs.build-apk }}" = "true" ]; then
+          cp universal_apk/app-release.apk "release_assets/${PREFIX}-${TAG}-universal.apk"
+          if [ "${{ inputs.split-per-abi }}" = "true" ]; then
+            for abi in armeabi-v7a arm64-v8a x86_64; do
+              source="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+              if [ ! -f "$source" ]; then
+                echo "Missing ABI APK: $source"
+                exit 1
+              fi
+              cp "$source" "release_assets/${PREFIX}-${TAG}-${abi}.apk"
+            done
+          fi
+        fi
+
+        if [ "${{ inputs.build-aab }}" = "true" ]; then
+          cp "build/app/outputs/bundle/release/app-release.aab" "release_assets/${PREFIX}-${TAG}.aab"
+        fi
+
+        if [ "${{ inputs.build-ipa }}" = "true" ]; then
+          mkdir -p Payload
+          ditto --norsrc build/ios/iphoneos/Runner.app Payload/Runner.app
+          ( cd release_assets && zip -r "../release_assets/${PREFIX}-${TAG}.ipa" ../Payload 2>/dev/null || true )
+          rm -rf Payload
+        fi
+
+        (
+          cd release_assets
+          sha256sum * > SHA256SUMS.txt
+        )
+        ls -la release_assets
+
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: flutter-${PREFIX}-release
+        path: release_assets/
+        if-no-files-found: error

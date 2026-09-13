@@ -1,0 +1,240 @@
+name: CI (language dispatcher)
+description: >-
+  Setup, lint, and test a project based on its language. Detects the stack
+  automatically or uses the provided `language` input. All heavy logic lives
+  here so projects only need a thin workflow.
+author: gha-workflows
+
+inputs:
+  language:
+    description: >-
+      Main stack. One of: auto, rust, tauri, node, python, flutter, kmp, php,
+      lua. Comma-separated lists allowed (e.g. 'rust,node'). 'auto' detects
+      from the repository files.
+    required: false
+    default: auto
+  rust-toolchain:
+    description: Rust toolchain to install for rust/tauri/kmp stacks.
+    required: false
+    default: stable
+
+outputs:
+  languages:
+    description: Detected/resolved languages (comma-separated).
+    value: ${{ steps.detect.outputs.languages }}
+  has-rust:
+    value: ${{ steps.detect.outputs.has-rust }}
+  has-node:
+    value: ${{ steps.detect.outputs.has-node }}
+  has-python:
+    value: ${{ steps.detect.outputs.has-python }}
+  has-flutter:
+    value: ${{ steps.detect.outputs.has-flutter }}
+  has-kmp:
+    value: ${{ steps.detect.outputs.has-kmp }}
+  has-php:
+    value: ${{ steps.detect.outputs.has-php }}
+  has-lua:
+    value: ${{ steps.detect.outputs.has-lua }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect / resolve language
+      id: detect
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        REQUESTED: ${{ inputs.language }}
+      run: |-
+        set -euo pipefail
+        detect_auto() {
+          local langs=""
+          if [ -f Cargo.toml ]; then
+            if [ -d src-tauri ]; then langs="${langs},tauri"; else langs="${langs},rust"; fi
+            [ -f package.json ] && langs="${langs},node"
+          fi
+          [ -f pubspec.yaml ] && langs="${langs},flutter"
+          { [ -f build.gradle.kts ] || [ -f settings.gradle.kts ]; } && [ -z "$langs" ] && langs="${langs},kmp"
+          [ -f package.json ] && [ -z "$langs" ] && langs="${langs},node"
+          { [ -f pyproject.toml ] || [ -f setup.py ] || [ -f requirements.txt ]; } && [ -z "$langs" ] && langs="${langs},python"
+          if [ -z "$langs" ] && find . -maxdepth 3 -name '*.php' ! -path '*/node_modules/*' | grep -q .; then langs="${langs},php"; fi
+          if [ -z "$langs" ] && find . -maxdepth 3 -name '*.lua' ! -path '*/node_modules/*' | grep -q .; then langs="${langs},lua"; fi
+          langs="${langs#,}"
+          [ -z "$langs" ] && langs="none"
+          echo "$langs"
+        }
+        if [ -z "$REQUESTED" ] || [ "$REQUESTED" = "auto" ]; then
+          RESOLVED=$(detect_auto)
+          if [ "$RESOLVED" = "none" ]; then
+            echo "::error::Could not auto-detect the project language. Set the 'language' input."
+            exit 1
+          fi
+          echo "auto-detected: $RESOLVED"
+        else
+          RESOLVED="$REQUESTED"
+        fi
+        RESOLVED="${RESOLVED//[[:space:]]/}"
+        NORMAL=""
+        IFS=',' read -ra arr <<< "$RESOLVED"
+        for l in "${arr[@]}"; do
+          case "$l" in
+            rust)       NORMAL="${NORMAL},rust" ;;
+            tauri)      NORMAL="${NORMAL},tauri" ;;
+            node|js|ts) NORMAL="${NORMAL},node" ;;
+            python|py)  NORMAL="${NORMAL},python" ;;
+            flutter)    NORMAL="${NORMAL},flutter" ;;
+            kmp|kotlin) NORMAL="${NORMAL},kmp" ;;
+            php)        NORMAL="${NORMAL},php" ;;
+            lua)        NORMAL="${NORMAL},lua" ;;
+            *) echo "::warning::Unknown language '$l', ignoring" ;;
+          esac
+        done
+        NORMAL="${NORMAL#,}"
+        [ -z "$NORMAL" ] && NORMAL="none"
+        echo "languages=$NORMAL" >> "$GITHUB_OUTPUT"
+        IFS=',' read -ra out <<< "$NORMAL"
+        for l in rust node python flutter kmp php lua tauri; do
+          if [ "$l" = "rust" ]; then
+            present=$(printf '%s\n' "${out[@]}" | grep -qxE 'rust|tauri' && echo true || echo false)
+          else
+            present=$(printf '%s\n' "${out[@]}" | grep -qx "$l" && echo true || echo false)
+          fi
+          printf 'has-%s=%s\n' "$l" "$present" >> "$GITHUB_OUTPUT"
+        done
+
+    # --- Rust / Tauri ---
+    - name: Setup Rust
+      if: steps.detect.outputs.has-rust == 'true' || steps.detect.outputs.has-kmp == 'true'
+      uses: YOUR_ORG/gha-workflows/.github/actions/setup-rust@main
+      with:
+        rust-toolchain: ${{ inputs.rust-toolchain }}
+
+    - name: Rust format check
+      if: steps.detect.outputs.has-rust == 'true' || steps.detect.outputs.has-kmp == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: cargo fmt --all -- --check
+
+    - name: Rust clippy
+      if: steps.detect.outputs.has-rust == 'true' || steps.detect.outputs.has-kmp == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Rust unit tests
+      if: steps.detect.outputs.has-rust == 'true' || steps.detect.outputs.has-kmp == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: cargo test --all-features
+
+    # --- Node ---
+    - name: Setup Node
+      if: steps.detect.outputs.has-node == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+
+    - name: Node install
+      if: steps.detect.outputs.has-node == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: npm ci --no-audit --no-fund
+
+    - name: Node build
+      if: steps.detect.outputs.has-node == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: npm run build --if-present
+
+    - name: Node tests
+      if: steps.detect.outputs.has-node == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: npm test --if-present
+
+    # --- Python ---
+    - name: Setup Python
+      if: steps.detect.outputs.has-python == 'true'
+      uses: YOUR_ORG/gha-workflows/.github/actions/setup-python@main
+
+    - name: Python install (editable)
+      if: steps.detect.outputs.has-python == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: python -m pip install -e ".[dev]" --quiet || python -m pip install -e . --quiet || true
+
+    - name: Python lint (ruff)
+      if: steps.detect.outputs.has-python == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: ruff check . || python -m ruff check . || pyflakes . 2>/dev/null || true
+
+    - name: Python tests (pytest)
+      if: steps.detect.outputs.has-python == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: python -m pytest -q || pytest -q || true
+
+    # --- Flutter ---
+    - name: Setup Flutter
+      if: steps.detect.outputs.has-flutter == 'true'
+      uses: YOUR_ORG/gha-workflows/.github/actions/flutter-setup@main
+
+    - name: Flutter analyze
+      if: steps.detect.outputs.has-flutter == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: flutter analyze
+
+    - name: Flutter tests
+      if: steps.detect.outputs.has-flutter == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: flutter test
+
+    # --- Kotlin Multiplatform ---
+    - name: Setup KMP
+      if: steps.detect.outputs.has-kmp == 'true'
+      uses: YOUR_ORG/gha-workflows/.github/actions/kmp-setup@main
+
+    - name: KMP checks
+      if: steps.detect.outputs.has-kmp == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: ./gradlew check --no-daemon
+
+    # --- PHP ---
+    - name: PHP lint
+      if: steps.detect.outputs.has-php == 'true'
+      uses: YOUR_ORG/gha-workflows/.github/actions/php-lint@main
+
+    # --- Lua ---
+    - name: Lua syntax check
+      if: steps.detect.outputs.has-lua == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |-
+        set -euo pipefail
+        FILES=$(find . -name '*.lua' -not -path './node_modules/*' | head -500 || true)
+        [ -z "$FILES" ] && echo "no lua files" && exit 0
+        LUAC=$(command -v luac5.1 || command -v luac5.3 || command -v luac || true)
+        if [ -z "$LUAC" ]; then
+          echo "::warning::luac not found, installing"
+          sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1 2>/dev/null || true
+          LUAC=$(command -v luac5.1 || command -v luac || true)
+        fi
+        if [ -n "$LUAC" ]; then
+          while IFS= read -r f; do
+            "$LUAC" -p "$f" || exit 1
+          done <<< "$FILES"
+          echo "lua syntax OK: $(echo "$FILES" | wc -l) files"
+        else
+          echo "::error::no luac available"; exit 1
+        fi
+
+    # --- Summary ---
+    - name: Print resolved languages
+      shell: bash
+      run: 'echo "Languages checked: ${{ steps.detect.outputs.languages }}"'

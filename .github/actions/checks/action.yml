@@ -1,0 +1,41 @@
+name: Run rust checks
+description: >-
+  Full Rust quality gate: formatting, clippy (-D warnings), and the complete
+  test suite. Intended for every Rust job regardless of the workflow that hosts it.
+
+inputs:
+  manifest:
+    description: "Path to Cargo.toml (leave empty for workspace root)"
+    required: false
+    default: ""
+  workspace-flag:
+    description: "Use --workspace flag for multi-crate repos"
+    required: false
+    default: "false"
+  test-env:
+    description: "JSON map of environment variables for tests (e.g. '{\"KEY\":\"value\"}')"
+    required: false
+    default: "{}"
+
+runs:
+  using: composite
+  steps:
+    - name: Check formatting
+      shell: bash
+      run: cargo fmt --all ${{ inputs.manifest && format('--manifest-path {0}', inputs.manifest) || '' }} --check
+
+    - name: Run clippy with warnings as errors
+      shell: bash
+      run: >
+        cargo clippy
+        ${{ inputs.workspace-flag == 'true' && '--workspace' || '' }}
+        --all-targets
+        ${{ inputs.manifest && format('--manifest-path {0}', inputs.manifest) || '' }}
+        -- -D warnings
+
+    - name: Run tests
+      shell: bash
+      run: >
+        cargo test
+        ${{ inputs.workspace-flag == 'true' && '--workspace' || '' }}
+        ${{ inputs.manifest && format('--manifest-path {0}', inputs.manifest) || '' }}

@@ -1,0 +1,78 @@
+name: PHP lint
+description: PHP CodeSniffer / Psalm / PHPStan lint
+
+inputs:
+  php-version:
+    description: PHP version
+    default: "8.4"
+  directory:
+    description: Directory to lint
+    default: "."
+  phpcs-standard:
+    description: PHPCS standard (e.g. PSR12, WordPress)
+    default: ""
+  phpstan-level:
+    description: PHPStan level (0-9, empty to skip)
+    default: "5"
+  skip-phpcs:
+    description: Skip PHPCS
+    default: "false"
+  skip-phpstan:
+    description: Skip PHPStan
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up PHP
+      uses: shivammathur/setup-php@cf4cade2721270509d5b1c7a6f29b595a91a5e0a # v2
+      with:
+        php-version: ${{ inputs.php-version }}
+        tools: composer
+
+    - name: Install Composer dependencies
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: composer install --no-interaction --prefer-dist --no-progress 2>/dev/null || true
+
+    - name: Run PHPCS
+      if: inputs.skip-phpcs != 'true'
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: |
+        if [ -f vendor/bin/phpcs ]; then
+          CMD="vendor/bin/phpcs"
+        elif command -v phpcs &>/dev/null; then
+          CMD="phpcs"
+        else
+          echo "::warning::phpcs not found - installing"
+          composer require --dev squizlabs/php_codesniffer
+          CMD="vendor/bin/phpcs"
+        fi
+        STANDARD="${{ inputs.phpcs-standard }}"
+        if [ -n "$STANDARD" ]; then
+          $CMD --standard="$STANDARD" --extensions=php .
+        else
+          $CMD --extensions=php .
+        fi
+
+    - name: Run PHPStan
+      if: inputs.skip-phpstan != 'true'
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: |
+        LEVEL="${{ inputs.phpstan-level }}"
+        if [ -z "$LEVEL" ]; then
+          echo "Skipping PHPStan (level empty)"
+          exit 0
+        fi
+        if [ -f vendor/bin/phpstan ]; then
+          CMD="vendor/bin/phpstan"
+        elif command -v phpstan &>/dev/null; then
+          CMD="phpstan"
+        else
+          echo "::warning::phpstan not found - installing"
+          composer require --dev phpstan/phpstan
+          CMD="vendor/bin/phpstan"
+        fi
+        $CMD analyse --level="$LEVEL" --no-progress .

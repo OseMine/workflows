@@ -1,0 +1,55 @@
+name: Shell + PowerShell lint
+description: ShellCheck (bash) and PSScriptAnalyzer (PowerShell)
+
+inputs:
+  shell-check-severity:
+    description: ShellCheck severity (error, warning, info, style)
+    default: "warning"
+  ps-script-analyzer-severity:
+    description: PSScriptAnalyzer severity (Error, Warning, Information)
+    default: "Warning"
+
+runs:
+  using: composite
+  steps:
+    - name: Install ShellCheck
+      shell: bash
+      run: |
+        if ! command -v shellcheck &>/dev/null; then
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+        fi
+
+    - name: Run ShellCheck
+      shell: bash
+      run: |
+        SCRIPTS=$(find . -name '*.sh' -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/vendor/*' 2>/dev/null || true)
+        if [ -z "$SCRIPTS" ]; then
+          echo "No .sh files found"
+          exit 0
+        fi
+        echo "$SCRIPTS" | xargs shellcheck --severity=${{ inputs.shell-check-severity }} --format=gcc
+
+    - name: Install PSScriptAnalyzer
+      shell: pwsh
+      run: |
+        if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+        }
+
+    - name: Run PSScriptAnalyzer
+      shell: pwsh
+      run: |
+        $scripts = Get-ChildItem -Recurse -Include *.ps1 -Exclude node_modules,.git,vendor
+        if (-not $scripts) {
+          Write-Host "No .ps1 files found"
+          return
+        }
+        $errors = 0
+        foreach ($script in $scripts) {
+          $results = Invoke-ScriptAnalyzer -Path $script.FullName -Severity ${{ inputs.ps-script-analyzer-severity }}
+          foreach ($result in $results) {
+            Write-Host "::error file=$($script.FullName),line=$($result.Line)::$($result.Message)"
+            $errors++
+          }
+        }
+        if ($errors -gt 0) { throw "PSScriptAnalyzer found $errors issue(s)" }

@@ -1,0 +1,30 @@
+name: Run rust lints
+description: >-
+  Fast formatting and clippy feedback without the full build/test suite.
+  Use this for quick CI lint checks.
+
+inputs:
+  manifest:
+    description: "Path to Cargo.toml (leave empty for workspace root)"
+    required: false
+    default: ""
+  workspace-flag:
+    description: "Use --workspace flag for multi-crate repos"
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Check formatting
+      shell: bash
+      run: cargo fmt --all ${{ inputs.manifest && format('--manifest-path {0}', inputs.manifest) || '' }} --check
+
+    - name: Run clippy with warnings as errors
+      shell: bash
+      run: >
+        cargo clippy
+        ${{ inputs.workspace-flag == 'true' && '--workspace' || '' }}
+        --all-targets
+        ${{ inputs.manifest && format('--manifest-path {0}', inputs.manifest) || '' }}
+        -- -D warnings

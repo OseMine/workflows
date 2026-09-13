@@ -1,0 +1,152 @@
+name: Run OpenCode (AI automation)
+description: >-
+  Runs opencode-ai with a prompt inside the checked-out repository using a
+  primary provider+model and a fallback provider+model (API keys per provider).
+  Sets git identity, runs the first model that works, and summarizes. Projects
+  call this from a thin workflow so the AI logic can be updated centrally.
+author: gha-workflows
+
+inputs:
+  prompt:
+    description: Prompt/task to run (project-specific text).
+    required: true
+  agent:
+    description: opencode agent to use.
+    required: false
+    default: build
+  provider:
+    description: >-
+      Primary AI provider: opencode, google, openai, mistral, anthropic, x,
+      deepseek, groq, puter, ollama (local, no key needed).
+    required: false
+    default: opencode
+  model:
+    description: >-
+      Primary model. 'provider/model' or just the model id (provider input
+      is prepended automatically).
+    required: false
+    default: deepseek-v4-flash-free
+  api-key:
+    description: API key for the primary provider (empty = anonymous/local model if possible).
+    required: false
+  fallback-provider:
+    description: Fallback AI provider (same list as `provider`).
+    required: false
+    default: opencode
+  fallback-model:
+    description: Fallback model (same format as `model`).
+    required: false
+    default: gpt-4o-mini
+  fallback-api-key:
+    description: API key for the fallback provider (empty = omitted).
+    required: false
+  opencode-version:
+    description: Version of the opencode-ai npm package to use.
+    required: false
+    default: 1.18.29
+  working-directory:
+    description: Directory to run in (relative to the workspace).
+    required: false
+    default: .
+  git-identity:
+    description: Commit identity, as 'Name <email>'.
+    required: false
+    default: GitHub Actions <github-actions[bot]@users.noreply.github.com>
+  timeout-minutes:
+    description: Hard timeout for the run.
+    required: false
+    default: "45"
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git identity
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |-
+        IFS='<' read -r name email <<< "${{ inputs.git-identity }}"
+        email="${email%>}"
+        git config --global user.name "${name% }"
+        git config --global user.email "${email% }"
+        git config --global safe.directory '*'
+
+    - name: Run OpenCode with provider-aware fallback
+      id: run
+      shell: bash
+      working-directory: ${{ github.workspace }}/${{ inputs.working-directory }}
+      timeout-minutes: ${{ inputs.timeout-minutes }}
+      env:
+        OPENCODE_ENV: github-actions
+        GITHUB_TOKEN: ${{ github.token }}
+        PACKAGE: opencode-ai@${{ inputs.opencode-version }}
+        PROV1: ${{ inputs.provider }}
+        MODEL1: ${{ inputs.model }}
+        KEY1: ${{ inputs.api-key }}
+        PROV2: ${{ inputs.fallback-provider }}
+        MODEL2: ${{ inputs.fallback-model }}
+        KEY2: ${{ inputs.fallback-api-key }}
+        AGENT: ${{ inputs.agent }}
+        PROMPT: ${{ inputs.prompt }}
+      run: |-
+        set -u
+        # ---- map provider -> the API key env var opencode expects ----
+        apply_key() {
+          local p="$1" k="$2"
+          case "$p" in
+            opencode)   export OPENCODE_API_KEY="$k" ;;
+            google)     export GOOGLE_API_KEY="$k" ;;
+            openai)     export OPENAI_API_KEY="$k" ;;
+            mistral)    export MISTRAL_API_KEY="$k" ;;
+            anthropic)  export ANTHROPIC_API_KEY="$k" ;;
+            x|xai)      export XAI_API_KEY="$k" ;;
+            deepseek)   export DEEPSEEK_API_KEY="$k" ;;
+            groq)       export GROQ_API_KEY="$k" ;;
+            puter)      export PUTER_AUTH_TOKEN="$k" ;;
+            ollama)     : ;; # local, no key
+            *) echo "::warning::unknown provider '$p'" ;;
+          esac
+        }
+        needs_key() {
+          case "$1" in ollama|opencode|puter) return 1 ;; *) return 0 ;; esac
+        }
+        # assemble full model id: "prov/model" or "model" if it already contains "/"
+        full_model() {
+          case "$2" in */*) echo "$2" ;; *) echo "$1/$2" ;; esac
+        }
+        try_model() {
+          local p="$1" m="$2" k="$3"
+          m=$(full_model "$p" "$m")
+          if needs_key "$p" && [ -z "$k" ]; then
+            echo "::warning::provider '$p' needs an API key but none given - skipping $m"
+            return 1
+          fi
+          apply_key "$p" "$k"
+          echo "--- trying model: $m ---"
+          if npx --yes "$PACKAGE" run --model "$m" --agent "$AGENT" --auto "$PROMPT" 2>&1; then
+            echo "OpenCode succeeded with model: $m (provider: $p)" >> "$GITHUB_STEP_SUMMARY"
+            echo "SUCCEEDED_MODEL=$m" >> "$GITHUB_ENV"
+            return 0
+          fi
+          local code=$?
+          echo "::warning::opencode failed with model $m (exit $code)"
+          return 1
+        }
+        npx --yes "$PACKAGE" --version >/dev/null 2>&1 || npm install -g --silent "$PACKAGE" >/dev/null 2>&1
+        if ! try_model "$PROV1" "$MODEL1" "$KEY1"; then
+          try_model "$PROV2" "$MODEL2" "$KEY2"
+          echo "::error::all providers failed"
+          exit 1
+        fi
+
+    - name: Summarize result
+      if: ${{ always() }}
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |-
+        printf '## OpenCode run finished\n' >> "$GITHUB_STEP_SUMMARY"
+        printf -- '- Provider: %s / model: %s\n' "${{ inputs.provider }}" "${{ inputs.model }}" >> "$GITHUB_STEP_SUMMARY"
+        printf -- '- Agent: %s\n' "${{ inputs.agent }}" >> "$GITHUB_STEP_SUMMARY"
+        printf -- '- Path: %s\n' "${{ inputs.working-directory }}" >> "$GITHUB_STEP_SUMMARY"
+        if [ "${{ steps.run.outcome }}" != "success" ]; then
+          printf -- '- Status: **failed** (see logs)\n' >> "$GITHUB_STEP_SUMMARY"
+        fi

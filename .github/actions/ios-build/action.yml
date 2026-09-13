@@ -1,0 +1,88 @@
+name: Build iOS IPA
+description: >-
+  Builds an iOS app with xcodebuild and packages an unsigned IPA.
+  Requires macOS runner with Xcode installed. Uses XcodeGen to generate
+  the Xcode project from a project.yml spec.
+
+inputs:
+  project-dir:
+    description: "Path to the iOS project directory"
+    required: false
+    default: "ios"
+  scheme:
+    description: "Xcode scheme name"
+    required: true
+  xcode-version:
+    description: "Xcode.app name to select (e.g. 'Xcode_16.2')"
+    required: false
+    default: "Xcode_16.2"
+  config:
+    description: "Build configuration (Debug or Release)"
+    required: false
+    default: "Debug"
+  build-script:
+    description: "Path to IPA packaging script (leave empty to skip IPA)"
+    required: false
+    default: ""
+  artifact-name:
+    description: "Name for the uploaded IPA artifact"
+    required: false
+    default: "ios"
+  retention-days:
+    description: "Artifact retention in days"
+    required: false
+    default: "14"
+  xcodegen:
+    description: "Use XcodeGen to generate the project"
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode
+      shell: bash
+      run: sudo xcode-select -s /Applications/${{ inputs.xcode-version }}.app/Contents/Developer
+
+    - name: Install XcodeGen
+      if: inputs.xcodegen == 'true'
+      shell: bash
+      run: brew install xcodegen
+
+    - name: Generate Xcode project
+      if: inputs.xcodegen == 'true'
+      working-directory: ${{ inputs.project-dir }}
+      shell: bash
+      run: xcodegen generate --spec project.yml
+
+    - name: Build (xcodebuild)
+      working-directory: ${{ inputs.project-dir }}
+      shell: bash
+      run: |
+        xcodebuild \
+          -project ${{ inputs.scheme }}.xcodeproj \
+          -scheme ${{ inputs.scheme }} \
+          -configuration ${{ inputs.config }} \
+          -destination "generic/platform=iOS" \
+          -derivedDataPath ../build/ios/DerivedData \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          ENABLE_BITCODE=NO \
+          clean build 2>&1 | xcpretty
+
+    - name: Build unsigned IPA
+      if: inputs.build-script != ''
+      shell: bash
+      run: |
+        chmod +x ${{ inputs.build-script }}
+        ${{ inputs.build-script }} --release
+
+    - name: Upload IPA artifact
+      if: inputs.build-script != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: build/ios/*.ipa
+        retention-days: ${{ inputs.retention-days }}
+        if-no-files-found: warn

@@ -1,0 +1,42 @@
+name: Nextcloud app package
+description: Package a Nextcloud app folder as a .zip
+
+inputs:
+  app-dir:
+    description: Directory containing the Nextcloud app (with appinfo/info.xml)
+    default: "flutcloud-app"
+  artifact-name:
+    description: Upload artifact name
+    default: "nextcloud-app"
+  output-name:
+    description: Output zip filename (without .zip)
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Nextcloud app
+      shell: bash
+      run: |
+        if [ ! -f "${{ inputs.app-dir }}/appinfo/info.xml" ]; then
+          echo "::error::${{ inputs.app-dir }}/appinfo/info.xml not found"
+          exit 1
+        fi
+
+    - name: Package app as zip
+      shell: bash
+      run: |
+        OUT_NAME="${{ inputs.output-name }}"
+        if [ -z "$OUT_NAME" ]; then
+          OUT_NAME="${{ inputs.artifact-name }}"
+        fi
+        mkdir -p dist
+        ( cd "${{ inputs.app-dir }}" && zip -qr "../dist/${OUT_NAME}.zip" . -x '.git/*' )
+        echo "Package: dist/${OUT_NAME}.zip ($(du -h "dist/${OUT_NAME}.zip" | cut -f1))"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: dist/*.zip
+        if-no-files-found: error

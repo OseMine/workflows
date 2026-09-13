@@ -1,0 +1,26 @@
+# Nightly build/smoke template — copy into any project.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    name: Nightly checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Add a build/test action for your stack, e.g.:
+      # - uses: YOUR_ORG/gha-workflows/.github/actions/ci@main
+      #   with:
+      #     language: auto
+
+      - run: echo "Nightly checks completed"

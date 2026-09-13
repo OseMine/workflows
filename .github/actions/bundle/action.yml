@@ -1,0 +1,33 @@
+name: Bundle plugins
+description: >-
+  Builds audio plugins (VST3/CLAP) via xtask and uploads them as artifacts.
+  For nih-plug and similar Rust audio plugin projects.
+
+inputs:
+  artifact:
+    description: "Artifact name prefix (e.g. 'myplugin-bundles'). Set empty to skip upload."
+    required: false
+    default: "bundles"
+  xtask-cmd:
+    description: "xtask command to run"
+    required: false
+    default: "bundle"
+
+runs:
+  using: composite
+  steps:
+    - name: Build and bundle
+      shell: bash
+      run: cargo run -p xtask --release ${{ inputs.xtask-cmd }}
+
+    - name: List bundles
+      shell: bash
+      run: find target/bundled -type f | sort
+
+    - name: Upload bundles
+      if: inputs.artifact != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact }}-${{ runner.os }}
+        path: target/bundled
+        if-no-files-found: error

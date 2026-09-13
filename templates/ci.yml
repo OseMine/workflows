@@ -1,0 +1,27 @@
+# Thin CI workflow — copy this into any project, set `language`, done.
+# All lint/check/test logic lives in the shared `ci` action and updates
+# automatically at @main. Optional: add a matrix for multi-OS builds
+# (runs-on per leg + os input).
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: YOUR_ORG/gha-workflows/.github/actions/ci@main
+        with:
+          language: rust   # auto | rust | tauri | node | python | flutter | kmp | php | lua (comma lists allowed)

@@ -1,0 +1,52 @@
+name: Build Python package
+description: Build an sdist and wheel and optionally verify the wheel installs and imports in a clean venv.
+
+inputs:
+  python-version:
+    description: Python version to build with
+    required: false
+    default: "3.12"
+  working-directory:
+    description: Directory containing the buildable package (relative to repo root)
+    required: false
+    default: "."
+  smoke-test:
+    description: Install the wheel in a clean venv and import the package (true/false)
+    required: false
+    default: "true"
+  import-check:
+    description: Import statement to verify in the smoke test (e.g. "from mypkg import *; import mypkg")
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Python
+      uses: YOUR_ORG/gha-workflows/.github/actions/setup-python@main
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install build tooling
+      working-directory: ${{ inputs.working-directory }}
+      run: python -m pip install build
+      shell: bash
+
+    - name: Build sdist + wheel
+      working-directory: ${{ inputs.working-directory }}
+      run: python -m build
+      shell: bash
+
+    - name: Smoke-test installed wheel
+      if: ${{ inputs.smoke-test == 'true' }}
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        python -m venv /tmp/wheel-venv
+        /tmp/wheel-venv/bin/python -m pip install --quiet dist/*.whl
+        CHECK="${{ inputs.import-check }}"
+        if [ -n "$CHECK" ]; then
+          /tmp/wheel-venv/bin/python -c "$CHECK"
+        else
+          echo "Wheel built and installable (no import check configured)"
+        fi
+      shell: bash

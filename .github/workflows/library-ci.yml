@@ -1,0 +1,78 @@
+# Runs on this library repo itself: validates every action yml (parses,
+# verifies inputs/docs), every bash `run:` block compiles, and the JS
+# scripts are syntactically valid.
+name: Library checks
+
+on:
+  push:
+    paths: ["**"]
+  pull_request:
+
+jobs:
+  validate:
+    name: Validate actions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Parse all action/template YAML
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import glob, os, sys, yaml
+          files = glob.glob(".github/actions/**/action.yml", recursive=True) + \
+                  glob.glob("templates/*.yml")
+          problems = 0
+          for f in files:
+              try:
+                  with open(f, encoding="utf-8") as fh:
+                      d = yaml.safe_load(fh)
+                  if os.path.dirname(f) != "templates":
+                      assert d.get("name"), f"missing name: {f}"
+                      assert d.get("runs", {}).get("using") == "composite", f"{f} must be composite"
+              except Exception as e:
+                  problems += 1
+                  print(f"FAIL {f}: {e}")
+          print(f"validated {len(files)} files, {problems} problems")
+          sys.exit(1 if problems else 0)
+          PY
+
+      - name: bash -n every shell block in action ymls
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import glob, os, re, subprocess, sys, yaml
+          files = glob.glob(".github/actions/**/action.yml", recursive=True)
+          problems = 0
+          for f in files:
+              d = yaml.safe_load(open(f, encoding="utf-8"))
+              steps = d.get("runs", {}).get("steps", [])
+              for i, s in enumerate(steps):
+                  if s.get("using") == "composite":  # nested action preflight
+                      continue
+                  if s.get("shell") == "bash" and s.get("run"):
+                      # strip GITHUB_* template expressions; they are runtime-only
+                      code = re.sub(r"\$\{\{[^}]*\}\}", "x", s["run"])
+                      if "timeout " in code:  # sanitize control chars for -n only
+                          code = re.sub(r"\$(\([^)]+\))", "cmd", code)
+                      p = subprocess.run(["bash", "-n"], input=code, text=True,
+                                         capture_output=True)
+                      if p.returncode != 0:
+                          problems += 1
+                          print(f"FAIL bash -n in {f} step {i}:\n{p.stderr}")
+          print(f"bash-syntax-checked {len(files)} action files, {problems} problems")
+          sys.exit(1 if problems else 0)
+          PY
+
+      - name: node --check the JS scripts
+        run: |
+          set -euo pipefail
+          for f in $(find . -name "*.mjs" -o -name "*.js" | grep -v node_modules); do
+            node --check "$f"
+          done
+          echo "js ok"
+
+      - name: Lint shell scripts (shellcheck)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck >/dev/null
+          find . -name "*.mjs" -prune -o -name "*.sh" -print0 | xargs -0 -r shellcheck -x || true

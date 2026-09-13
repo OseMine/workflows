@@ -1,0 +1,35 @@
+# Thin security gate — copy into any project, wire OpenAI/Puter/VirusTotal
+# secrets, done. Trivy + cargo/npm audit + PHP hint + VirusTotal scan + AI
+# review, rating 0-10, fails the run below min-rating.
+name: Security
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # Monday 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Security gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: YOUR_ORG/gha-workflows/.github/actions/security@main
+        with:
+          min-rating: "7"
+          provider: opencode        # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
+          model: deepseek-v4-flash-free
+          api-key: ${{ secrets.OPENCODE_API_KEY }}     # optional (AI review)
+          fallback-provider: opencode
+          fallback-model: gpt-4o-mini
+          fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}
+          virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }} # optional (VIRUSTOTAL badge)
+          virustotal-files: "target/release/*.exe,dist/*.exe,*.exe"
+          test-cmd: "cargo test"                                 # optional verification

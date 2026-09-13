@@ -1,0 +1,62 @@
+name: Setup Rust toolchain
+description: >-
+  Installs the Rust toolchain with clippy and rustfmt, platform-specific
+  dependencies, and a shared cargo cache. Supports both Tauri and audio
+  plugin (nih-plug) projects.
+
+inputs:
+  rust-version:
+    description: "Rust toolchain version (e.g. 'stable', '1.97', 'nightly')"
+    required: false
+    default: "stable"
+  components:
+    description: "Additional toolchain components (comma separated)"
+    required: false
+    default: "clippy,rustfmt"
+  workspace:
+    description: "Cargo workspace path for cache (relative to repo root, e.g. 'src-tauri')"
+    required: false
+    default: ""
+  deps:
+    description: "Dependency profile: 'tauri' | 'audio' | 'none'"
+    required: false
+    default: "tauri"
+
+runs:
+  using: composite
+  steps:
+    - name: Install Linux Tauri dependencies
+      if: runner.os == 'Linux' && inputs.deps == 'tauri'
+      shell: bash
+      run: >
+        sudo apt-get update &&
+        sudo apt-get install -y
+        libwebkit2gtk-4.1-dev
+        libgtk-3-dev
+        libayatana-appindicator3-dev
+        librsvg2-dev
+        libxdo-dev
+        libssl-dev
+        patchelf
+
+    - name: Install Linux audio plugin dependencies
+      if: runner.os == 'Linux' && inputs.deps == 'audio'
+      shell: bash
+      run: >
+        sudo apt-get update &&
+        sudo apt-get install -y
+        libgl1-mesa-dev libglu1-mesa-dev libegl1-mesa-dev
+        libxcb1-dev libxcb-render0-dev libxcb-shape0-dev
+        libxcb-xfixes0-dev libxkbcommon-dev libwayland-dev
+        libx11-dev libx11-xcb-dev
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.rust-version }}
+        components: ${{ inputs.components }}
+
+    - name: Cache cargo registry and build output
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ inputs.workspace && format('{0} -> target', inputs.workspace) || '-> target' }}

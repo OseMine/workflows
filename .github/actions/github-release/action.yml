@@ -1,0 +1,78 @@
+name: Create GitHub Release
+description: "Derive the version from the pushed tag, build a changelog from git log, and create the GitHub release with optional assets + checksums. Requires `permissions: contents: write` in the calling workflow."
+
+inputs:
+  tag:
+    description: Release tag (defaults to the pushed tag ref)
+    required: false
+    default: ""
+  name:
+    description: Release name (defaults to the tag)
+    required: false
+    default: ""
+  body-preface:
+    description: Markdown added above the changelog
+    required: false
+    default: ""
+  body-file:
+    description: Path to a markdown file used as the full release body (overrides body-preface/changelog)
+    required: false
+    default: ""
+  generate-notes:
+    description: Also generate GitHub's auto release notes (true/false)
+    required: false
+    default: "true"
+  draft:
+    description: Create as draft (true/false)
+    required: false
+    default: "false"
+  prerelease:
+    description: Mark as prerelease (true/false)
+    required: false
+    default: "false"
+  assets:
+    description: >-
+      Files or glob patterns to upload (space-separated, e.g. "dist/*.tar.gz
+      dist/SHA256SUMS.txt dist/release-manifest.json").
+    required: false
+    default: ""
+  github-token:
+    description: Token used to create the release (defaults to GITHUB_TOKEN).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Get version
+      id: version
+      shell: bash
+      run: |-
+        TAG="${{ inputs.tag }}"
+        if [ -z "$TAG" ]; then
+          TAG="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "VERSION=${TAG}" >> "$GITHUB_OUTPUT"
+
+    - name: Build changelog
+      id: changelog
+      shell: bash
+      run: |-
+        CHANGELOG=$(git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD 2>/dev/null || git log --pretty=format:"- %s (%h)" -20)
+        echo "CHANGELOG<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
+    - name: Create release
+      uses: softprops/action-gh-release@v2
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
+      with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: ${{ inputs.name != '' && inputs.name || steps.version.outputs.VERSION }}
+        body: ${{ inputs.body-file == '' && format('{0}{1}{2}{3}', inputs.body-preface != '' && inputs.body-preface || '', '## Changes\n', steps.changelog.outputs.CHANGELOG, '') || '' }}
+        body_path: ${{ inputs.body-file != '' && inputs.body-file || '' }}
+        generate_release_notes: ${{ inputs.generate-notes }}
+        draft: ${{ inputs.draft }}
+        prerelease: ${{ inputs.prerelease }}
+        files: ${{ inputs.assets }}

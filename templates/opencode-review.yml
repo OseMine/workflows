@@ -1,0 +1,306 @@
+name: OpenCode Code Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: "Focus area for the review (e.g. 'backend API', 'DSP modules')"
+        required: false
+        type: string
+  schedule:
+    - cron: "0 6 * * 1" # Monday 06:00 UTC
+
+concurrency:
+  group: opencode-review
+  cancel-in-progress: true
+
+jobs:
+  issues-to-todo:
+    name: Sync issues to todo.md
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      issues: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git identity
+        shell: bash
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch open issues and write to todo.md
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'opencode' }}
+          AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+        run: |-
+          ISSUES=$(gh issue list --state open --json number,title,labels \
+            --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name] | join(","))"')
+
+          if [ -z "$ISSUES" ]; then
+            echo "No open issues found"
+            exit 0
+          fi
+
+          if [ ! -f todo.md ]; then
+            echo "# Todo" > todo.md
+            echo "" >> todo.md
+          fi
+
+          echo "$ISSUES" > /tmp/issues.txt
+
+          case "$AI_PROVIDER" in
+            google) export GOOGLE_API_KEY="$AI_API_KEY" ;;
+            openai) export OPENAI_API_KEY="$AI_API_KEY" ;;
+            mistral) export MISTRAL_API_KEY="$AI_API_KEY" ;;
+            anthropic) export ANTHROPIC_API_KEY="$AI_API_KEY" ;;
+            x|xai) export XAI_API_KEY="$AI_API_KEY" ;;
+            deepseek) export DEEPSEEK_API_KEY="$AI_API_KEY" ;;
+            groq) export GROQ_API_KEY="$AI_API_KEY" ;;
+            puter) export PUTER_AUTH_TOKEN="$AI_API_KEY" ;;
+            *) export OPENCODE_API_KEY="$AI_API_KEY" ;;
+          esac
+
+          npx opencode-ai@latest run \
+            --model "$AI_PROVIDER/$AI_MODEL" \
+            --auto \
+            "Lies todo.md und füge offene GitHub-Issues hinzu.
+
+            Offene Issues (aus der GitHub API):
+            $(cat /tmp/issues.txt)
+
+            Regeln:
+            1. Lies todo.md vollständig
+            2. Füge jedes Issue als '- [ ] #<number> <title> [<labels>]' hinzu
+            3. Überspringe Issues, die bereits in todo.md existieren (gleiche Nummer)
+            4. Behalte die bestehende Struktur bei
+            5. Speichere die Änderungen in todo.md
+            6. Committen Sie die Datei" 2>&1 || echo "opencode finished with error"
+
+          if [ -n "$(git status --porcelain todo.md)" ]; then
+            git add todo.md
+            git commit -m "chore: sync open issues to todo.md"
+            git push origin HEAD
+          fi
+
+  review:
+    name: Code review
+    runs-on: ubuntu-latest
+    needs: issues-to-todo
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git identity
+        shell: bash
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run OpenCode review
+        # Uses the wire format of the anomalyco/opencode/github action, but the
+        # provider/model are configurable via repo variables.
+        uses: anomalyco/opencode/github@latest
+        id: review
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: GitHub Actions
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: GitHub Actions
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+        with:
+          model: ${{ vars.AI_MODEL || 'opencode/deepseek-v4-flash-free' }}
+          agent: reviewer
+          use_github_token: true
+          prompt: |
+            Automated code review of this project.
+            Focus area: ${{ github.event.inputs.focus || 'the entire project' }}
+
+            Steps:
+            1. Read README.md, package.json/Cargo.toml, and all source code.
+               Read existing todo.md if present.
+            2. Find bugs, missing features, and improvement suggestions.
+               Verify suspicions by running tests where possible.
+            3. Write the review as a dated section in todo.md (or
+               reports/review-YYYY-MM-DD.md). Start writing early, don't
+               wait until the end.
+            4. Append new findings as a dated section at the top of todo.md.
+               Leave existing entries untouched.
+            5. Check which items in todo.md are done, mark them as completed
+               [x] and move finished items to archived-todo.md.
+            6. Review open GitHub issues. Add open issues to todos and close
+               resolved ones.
+
+            Rules:
+            - Only modify todo.md and reports/. No application code changes.
+            - No git operations (commit, push, PRs, merges, branch deletes).
+            - No GitHub API calls. No destructive actions.
+            - Every finding must include concrete file/function names.
+            - If no new findings exist, state that explicitly in the report.
+
+      - name: Create pull request with review results
+        if: always()
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: review/opencode-${{ github.run_id }}
+          commit-message: "chore: opencode review report"
+          title: "chore: opencode review report"
+          body: |
+            Automated review report from OpenCode.
+
+            - Contains only changes to todo.md and reports/.
+            - Please review and merge.
+          delete-branch: true
+
+  review-prs:
+    name: Review & merge PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+
+      - name: Configure git identity
+        shell: bash
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: List open PRs
+        id: prs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PRS=$(gh pr list --state open --json number,title,headRefName \
+            --jq '.[] | "\(.number)\t\(.title)\t\(.headRefName)"')
+          echo "prs<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$PRS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Review and merge PRs
+        if: steps.prs.outputs.prs != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'opencode' }}
+          AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+        run: |
+          while IFS=$'\t' read -r number title head_ref; do
+            [ -z "$number" ] && continue
+            echo "=== Reviewing PR #$number: $title ==="
+
+            git fetch origin "pull/$number/head:pr-$number" 2>/dev/null || continue
+            git checkout "pr-$number" 2>/dev/null || continue
+
+            case "$AI_PROVIDER" in
+              google) export GOOGLE_API_KEY="$AI_API_KEY" ;;
+              openai) export OPENAI_API_KEY="$AI_API_KEY" ;;
+              mistral) export MISTRAL_API_KEY="$AI_API_KEY" ;;
+              anthropic) export ANTHROPIC_API_KEY="$AI_API_KEY" ;;
+              x|xai) export XAI_API_KEY="$AI_API_KEY" ;;
+              deepseek) export DEEPSEEK_API_KEY="$AI_API_KEY" ;;
+              groq) export GROQ_API_KEY="$AI_API_KEY" ;;
+              puter) export PUTER_AUTH_TOKEN="$AI_API_KEY" ;;
+              *) export OPENCODE_API_KEY="$AI_API_KEY" ;;
+            esac
+
+            npx opencode-ai@latest run \
+              --model "$AI_PROVIDER/$AI_MODEL" \
+              --auto \
+              "Review this PR. Evaluate: 1) Code correctness, 2) Project conventions, 3) Security.
+               Respond with exactly one of: MERGE / APPROVE / REJECT followed by a one-line rationale." \
+              > /tmp/review-result.txt 2>&1 || true
+
+            RESULT=$(grep -E '^(MERGE|APPROVE|REJECT)' /tmp/review-result.txt | head -1 || echo "REJECT")
+            RATIONALE=$(tail -n +2 /tmp/review-result.txt 2>/dev/null | tr '\n' ' ' || echo "Review failed")
+
+            git checkout main 2>/dev/null || git checkout master 2>/dev/null
+
+            case "$RESULT" in
+              MERGE)
+                gh pr merge "$number" --squash --delete-branch 2>&1 || echo "Failed to merge PR #$number"
+                ;;
+              APPROVE)
+                gh pr review "$number" --approve --body "$RATIONALE" 2>&1 || echo "Failed to approve PR #$number"
+                ;;
+              *)
+                gh pr comment "$number" --body "Automated review: $RATIONALE" 2>&1 || echo "Failed to comment on PR #$number"
+                ;;
+            esac
+          done <<< "${{ steps.prs.outputs.prs }}"
+
+  branch-cleanup:
+    name: Delete stale branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Delete merged branches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch --prune 2>/dev/null || true
+          MERGED=$(git branch -r --merged origin/main 2>/dev/null | grep -v 'origin/main' | grep -v 'origin/master' | sed 's|origin/||' || true)
+
+          for branch in $MERGED; do
+            case "$branch" in
+              main|master|develop|dev|staging|production) continue ;;
+            esac
+            echo "Deleting merged branch: $branch"
+            git push origin --delete "$branch" 2>&1 || echo "Failed to delete $branch"
+          done
+
+      - name: Delete stale branches (>90 days)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCHES=$(gh api repos/{owner}/{repo}/branches --paginate --jq '.[].name' 2>/dev/null || true)
+          CUTOFF=$(date -d "90 days ago" --utc +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -v-90d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)
+
+          for branch in $BRANCHES; do
+            case "$branch" in
+              main|master|develop|dev|staging|production) continue ;;
+            esac
+            LAST_COMMIT=$(gh api "repos/{owner}/{repo}/branches/$branch" --jq '.commit.commit.author.date' 2>/dev/null || true)
+            if [ -n "$LAST_COMMIT" ] && [ -n "$CUTOFF" ] && [[ "$LAST_COMMIT" < "$CUTOFF" ]]; then
+              echo "Deleting stale branch: $branch (last: $LAST_COMMIT)"
+              git push origin --delete "$branch" 2>&1 || echo "Failed to delete $branch"
+            fi
+          done

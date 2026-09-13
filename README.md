@@ -1,0 +1,263 @@
+# gha-workflows — reusable GitHub Actions library
+
+A collection of reusable composite GitHub Actions you can consume from **any**
+project. All logic lives in this repository; projects only copy a thin
+workflow (set `language:`) and point actions at `YOUR_ORG/gha-workflows@main`.
+
+Update a composite action once → every consuming project inherits the fix.
+
+## Usage (fast path)
+
+1. **Copy a template** from `templates/` into your project's `.github/workflows/`.
+2. **Replace** `YOUR_ORG/gha-workflows` with your GitHub org/repo.
+3. Set `language:`, `build:` or `prompt:` as needed.
+4. Commit, push, done.
+
+### CI (push/PR quality gate)
+
+```yaml
+name: CI
+on: [push, pull_request]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: YOUR_ORG/gha-workflows/.github/actions/ci@main
+        with:
+          language: rust    # auto | rust | tauri | node | python | flutter | kmp | php | lua
+```
+
+### Release (workflow dispatch)
+
+Copy `templates/release.yml`. Run from the **Actions → Release → Run workflow** dialog: the version auto-detects from `pubspec.yaml` / `Cargo.toml` / `package.json` (or pick a tag / version), choose prerelease/draft, and the whole pipeline runs. `push: tags: ["v*"]` stays as a secondary trigger.
+
+```yaml
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:      {description: Version, required: false, type: string}
+      prerelease:   {description: Mark as prerelease, type: boolean, default: false}
+      draft:        {description: Create as draft, type: boolean, default: false}
+      build:        {description: Build flags, type: string, default: all}
+  push: {tags: ["v*"]}
+permissions: {contents: write, id-token: write}
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: {fetch-depth: 0}
+      - uses: YOUR_ORG/gha-workflows/.github/actions/release-all@main
+        with:
+          language: rust
+          build: ${{ github.event.inputs.build || 'all' }}
+          release-tag: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || '' }}
+          min-rating: "7"
+          draft: ${{ github.event.inputs.draft || 'false' }}
+          prerelease: ${{ github.event.inputs.prerelease || 'false' }}
+          api-key: ${{ secrets.OPENCODE_API_KEY }}    # optional, enables AI release notes
+```
+
+### Security gate (PR/push)
+
+```yaml
+name: Security
+on: [push, pull_request]
+permissions: {contents: read}
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: YOUR_ORG/gha-workflows/.github/actions/security@main
+        with:
+          min-rating: "7"
+          provider: opencode            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
+          model: deepseek-v4-flash-free
+          api-key: ${{ secrets.OPENCODE_API_KEY }}
+          fallback-provider: opencode
+          fallback-model: gpt-4o-mini
+          fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}
+          virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }}
+```
+
+## AI providers
+
+Every action that uses AI (security review, release notes, OpenCode automation)
+exposes the same provider/model/fallback API keys pattern:
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `provider` | Primary AI provider | `opencode` |
+| `model` | Primary model | `deepseek-v4-flash-free` |
+| `api-key` | API key for primary provider | *(empty)* |
+| `fallback-provider` | Fallback provider | `opencode` |
+| `fallback-model` | Fallback model | `gpt-4o-mini` |
+| `fallback-api-key` | API key for fallback | *(empty)* |
+
+**Supported providers:** `opencode`, `google`, `openai`, `mistral`, `anthropic`,
+`x` (xAI/Grok), `deepseek`, `groq`, `puter`, `ollama` (local, no key).
+
+Each provider maps to its own API key environment variable (`GOOGLE_API_KEY`,
+`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) — the actions handle the mapping
+so you only set one `api-key` per provider.
+
+Recommended setup — create one repo secret per provider you use:
+
+| Secret | Provider | Used by |
+|--------|----------|---------|
+| `OPENCODE_API_KEY` | OpenCode (their API gateway) | opencode, security, release |
+| `AI_API_KEY` | Your preferred provider's key | opencode, security, release |
+| `VIRUSTOTAL_API_KEY` | VirusTotal | security |
+| `PUTER_AUTH_TOKEN` | Puter (optional, free token-gated models) | security, release |
+
+The fallback ensures reliability — if the primary provider is down or has no
+credits, the run continues with the fallback.
+
+### OpenCode automation
+
+```yaml
+name: OpenCode
+on: {workflow_dispatch: {}, schedule: [{cron: "0 6 * * 1"}]}
+permissions: {contents: write, issues: write, pull-requests: write}
+jobs:
+  opencode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with: {fetch-depth: 0, persist-credentials: true}
+      - uses: YOUR_ORG/gha-workflows/.github/actions/opencode@main
+        with:
+          prompt: "Analyze this Rust project for dead code and suggest removals"
+          provider: opencode
+          model: deepseek-v4-flash-free
+          api-key: ${{ secrets.AI_API_KEY }}
+          fallback-provider: openai
+          fallback-model: gpt-4o-mini
+          fallback-api-key: ${{ secrets.OPENAI_API_KEY }}
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit-message: "chore: opencode automation [skip ci]"
+```
+
+## Available actions
+
+| Action | Purpose | Primary language |
+|--------|---------|-----------------|
+| `ci` | Language auto-detect → lint + check + test | all |
+| `release-all` | Meta/semver + builds + security gate + AI notes + GitHub release | all |
+| `security` | Trivy + cargo-audit + npm audit + PHP lint + VirusTotal + AI review | all |
+| `opencode` | Git identity + model fallback chain + AI task runner | all |
+| `github-release` | Changelog + softprops release (SHA256SUMS, manifest) | all |
+| `setup` | System dependencies (Linux) | all |
+| `setup-rust` | Rust toolchain + ALSA (Linux) | rust / tauri |
+| `setup-python` | Python 3.12 | python |
+| `setup-node` | Node 22 + npm | node |
+| `lint` | cargo fmt --check | rust |
+| `checks` | cargo clippy + test | rust |
+| `bundle` | Tauri bundle per OS matrix | tauri |
+| `installer` | Inno Setup Windows installer | tauri |
+| `python-build` | sdist + wheel + smoke test | python |
+| `pypi-publish` | OIDC twine trusted publishing | python |
+| `cargo-publish` | Idempotent crates.io publish | rust |
+| `flutter-setup` | Flutter SDK + native deps | flutter |
+| `flutter-build` | APK + AAB + unsigned IPA + SHA256SUMS | flutter |
+| `kmp-setup` | Android SDK/NDK + Gradle cache | kmp |
+| `kmp-android-build` | Signed APK | kmp |
+| `kmp-ios-build` | Signed IPA (Xcode) | kmp |
+| `php-lint` | php -l across all .php files | php |
+| `shell-lint` | shellcheck across all .sh files | bash |
+| `nextcloud-app` | Nextcloud app packaging | nextcloud |
+
+## Templates
+
+Thin copy-paste workflows in `templates/` — set `language:` or `prompt:` and commit:
+
+```
+templates/
+  ci.yml              ← push/PR quality gate
+  release.yml         ← tag release (tauri/rust/flutter/...)
+  security.yml        ← Trivy + audits + AI + VirusTotal
+  opencode.yml        ← generic AI automation
+  opencode-review.yml ← PR review + merge/proceed + branch cleanup
+  opencode-todo-issues.yml ← sync open issues to todo.md
+  nightly.yml         ← scheduled build placeholder
+  codeql.yml          ← CodeQL static analysis
+  deploy-web.yml      ← Vercel/web deploy
+```
+
+## Repository layout
+
+```
+.github/
+  actions/   ← all composite action logic lives here (the library)
+  workflows/
+    library-ci.yml  ← self-tests this repo's actions YAML + bash syntax + JS
+templates/  ← thin per-project workflows (copy-paste starters)
+README.md
+LICENSE
+```
+
+## Getting started
+
+### 1. Publish this repo
+
+Push to your GitHub org under the name `gha-workflows` (or rename to your
+preferred library name).
+
+### 2. Replace the placeholder
+
+In every template and action, replace `YOUR_ORG/gha-workflows` with your
+GitHub `owner/repo`. A single sed for the whole repo:
+
+```bash
+find . -name '*.yml' -exec sed -i 's|YOUR_ORG/gha-workflows|OWNER/REPO|g' {} +
+```
+
+### 3. Copy workflows into your project
+
+Copy the appropriate `.yml` files from `templates/` into your project's
+`.github/workflows/` and commit.
+
+### 4. Set up secrets
+
+In your project's repo, configure the secrets referenced in the workflows
+(the templates list them). The most common are:
+
+- `OPENCODE_API_KEY` — enables AI review + AI release notes
+- `PUTER_AUTH_TOKEN` — token-gated Puter models
+- `VIRUSTOTAL_API_KEY` — artifact reputation scanning
+
+### 5. Update actions centrally
+
+When you improve or fix a composite action in this library, push a commit
+to `main` (or a version tag). Every project pointing at `@main` (or the tag)
+gets the fix automatically — no per-project PRs required.
+
+## Multi-OS builds
+
+The composite `ci` and `release-all` actions run on a single runner. For
+cross-OS builds (Tauri bundles, Rust tests on Linux + macOS + Windows), mount
+a matrix in the thin caller and call the action per OS:
+
+```yaml
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: YOUR_ORG/gha-workflows/.github/actions/ci@main
+        with:
+          language: tauri
+```
+
+## License
+
+MIT

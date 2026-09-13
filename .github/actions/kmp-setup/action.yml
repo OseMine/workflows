@@ -1,0 +1,40 @@
+name: KMP setup
+description: Set up JDK + Gradle cache for Kotlin Multiplatform builds
+
+inputs:
+  java-version:
+    description: JDK version
+    default: "21"
+  gradle-version:
+    description: Gradle wrapper version (empty = auto-detect from gradle/wrapper/gradle-wrapper.properties)
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK
+      uses: actions/setup-java@0147580e7d12821e959687248b8743e0b809de27 # v4
+      with:
+        distribution: temurin
+        java-version: ${{ inputs.java-version }}
+
+    - name: Cache Gradle
+      uses: actions/cache@064f3d72ea52e4766041da6d48629af1c6a3114e # v5
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: gradle-${{ runner.os }}-
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@01630b9ef29356e76b286a1942398b8da34c5c51 # v4
+
+    - name: Set Gradle wrapper version
+      if: inputs.gradle-version != ''
+      shell: bash
+      run: |
+        if [ -f gradlew ]; then
+          chmod +x gradlew
+          ./gradlew wrapper --gradle-version=${{ inputs.gradle-version }} --distribution-type=bin
+        fi

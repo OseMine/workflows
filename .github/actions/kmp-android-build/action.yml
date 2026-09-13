@@ -1,0 +1,75 @@
+name: KMP Android build
+description: Kotlin Multiplatform Android APK build (signed or unsigned)
+
+inputs:
+  signed:
+    description: Whether to sign the APK (true/false)
+    default: "false"
+  keystore:
+    description: Base64-encoded keystore
+    default: ""
+  keystore-store-password:
+    description: Keystore password
+    default: ""
+  keystore-key-alias:
+    description: Key alias
+    default: ""
+  keystore-key-password:
+    description: Key password
+    default: ""
+  artifact-name:
+    description: Upload artifact name
+    default: "android-release"
+  build-variant:
+    description: Gradle build variant
+    default: "release"
+  java-version:
+    description: JDK version
+    default: "21"
+  gradle-version:
+    description: Gradle wrapper version
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: YOUR_ORG/gha-workflows/.github/actions/kmp-setup@main
+      with:
+        java-version: ${{ inputs.java-version }}
+        gradle-version: ${{ inputs.gradle-version }}
+
+    - name: Decode keystore
+      if: inputs.signed == 'true' && inputs.keystore != ''
+      shell: bash
+      run: |
+        echo "${{ inputs.keystore }}" | base64 -d > /tmp/release.keystore
+
+    - name: Build APK
+      shell: bash
+      run: |
+        if [ "${{ inputs.signed }}" = "true" ] && [ -n "${{ inputs.keystore }}" ]; then
+          ./gradlew :android-app:assembleRelease \
+            -Pandroid.injected.signing.store.file=/tmp/release.keystore \
+            -Pandroid.injected.signing.store.password="${{ inputs.keystore-store-password }}" \
+            -Pandroid.injected.signing.key.alias="${{ inputs.keystore-key-alias }}" \
+            -Pandroid.injected.signing.key.password="${{ inputs.keystore-key-password }}"
+        else
+          ./gradlew :android-app:assemble${{ inputs.build-variant == 'release' && 'Release' || 'Debug' }}
+        fi
+
+    - name: Verify APK exists
+      shell: bash
+      run: |
+        APK=$(find . -name "*.apk" -path "*/android-app/*" 2>/dev/null | head -1)
+        if [ -z "$APK" ]; then
+          echo "::error::No APK found after build"
+          exit 1
+        fi
+        echo "APK: $APK ($(du -h "$APK" | cut -f1))"
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: "**/android-app/**/*.apk"
+        if-no-files-found: error

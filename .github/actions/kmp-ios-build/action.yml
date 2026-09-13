@@ -1,0 +1,75 @@
+name: KMP iOS build
+description: Kotlin Multiplatform iOS IPA build (unsigned)
+
+inputs:
+  artifact-name:
+    description: Upload artifact name
+    default: "ios-release"
+  version:
+    description: CFBundleShortVersionString
+    default: "1.0.0"
+  build-number:
+    description: CFBundleVersion
+    default: "1"
+  java-version:
+    description: JDK version (needed for Gradle/Android SDK even on iOS)
+    default: "21"
+  gradle-version:
+    description: Gradle wrapper version
+    default: ""
+  ipa-name:
+    description: Output IPA filename
+    default: "app.ipa"
+
+runs:
+  using: composite
+  steps:
+    - uses: YOUR_ORG/gha-workflows/.github/actions/kmp-setup@main
+      with:
+        java-version: ${{ inputs.java-version }}
+        gradle-version: ${{ inputs.gradle-version }}
+
+    - name: Build XCFramework
+      shell: bash
+      run: |
+        ./gradlew :shared:embedAndSignAppleFrameworkForXcode \
+          -Pkotlin.native.cocoapods.generate=true \
+          --no-daemon
+
+    - name: Compile iOS app
+      shell: bash
+      run: |
+        cd ios
+        set -o pipefail
+        xcodebuild -scheme App -configuration Release \
+          -archivePath build/App.xcarchive \
+          -destination "generic/platform=iOS" \
+          CODE_SIGNING_ALLOWED=NO \
+          DEVELOPMENT_TEAM="" \
+          CODE_SIGN_IDENTITY="" \
+          COMPILER_INDEX_STORE_ENABLE=NO \
+          RUN_SWIFT_COMPILER_IN_PROCESS=YES | xcpretty
+
+    - name: Create IPA
+      shell: bash
+      run: |
+        mkdir -p Payload
+        cp -r ios/build/App.xcarchive/Products/Applications/App.app Payload/
+        zip -r "${{ inputs.ipa-name }}" Payload
+        rm -rf Payload
+
+    - name: Verify IPA exists
+      shell: bash
+      run: |
+        if [ ! -f "${{ inputs.ipa-name }}" ]; then
+          echo "::error::No IPA found after build"
+          exit 1
+        fi
+        echo "IPA: ${{ inputs.ipa-name }} ($(du -h "${{ inputs.ipa-name }}" | cut -f1))"
+
+    - name: Upload IPA artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.ipa-name }}
+        if-no-files-found: error

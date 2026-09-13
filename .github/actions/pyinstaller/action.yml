@@ -1,0 +1,99 @@
+name: Build with PyInstaller
+description: >-
+  Builds a Python executable with PyInstaller. Handles platform-specific
+  packaging: .exe on Windows, .app bundle on macOS, plain binary on Linux.
+  Uploads artifacts automatically.
+
+inputs:
+  name:
+    description: "Executable name (without extension)"
+    required: true
+  entry:
+    description: "Entry point script (e.g. 'main.py')"
+    required: true
+  paths:
+    description: "Additional paths to add (passed to --paths)"
+    required: false
+    default: ""
+  windowed:
+    description: "Build as windowed/no-console app"
+    required: false
+    default: "true"
+  onefile:
+    description: "Build as single file (--onefile)"
+    required: false
+    default: "true"
+  extra-args:
+    description: "Additional PyInstaller arguments"
+    required: false
+    default: ""
+  artifact-prefix:
+    description: "Prefix for artifact names (e.g. 'myapp')"
+    required: false
+    default: ""
+  retention-days:
+    description: "Artifact retention in days"
+    required: false
+    default: "7"
+  pyinstaller-version:
+    description: "PyInstaller version to install"
+    required: false
+    default: "6.22.0"
+
+runs:
+  using: composite
+  steps:
+    - name: Install PyInstaller
+      shell: bash
+      run: pip install "pyinstaller==${{ inputs.pyinstaller-version }}"
+
+    - name: Build executable
+      shell: bash
+      run: >
+        pyinstaller
+        ${{ inputs.onefile == 'true' && '--onefile' || '' }}
+        ${{ inputs.windowed == 'true' && '--windowed' || '' }}
+        --name ${{ inputs.name }}
+        ${{ inputs.paths && format('--paths {0}', inputs.paths) || '' }}
+        ${{ inputs.extra-args }}
+        ${{ inputs.entry }}
+
+    - name: Upload artifact (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-prefix && format('{0}-windows', inputs.artifact-prefix) || format('{0}-windows', inputs.name) }}
+        path: dist/${{ inputs.name }}.exe
+        retention-days: ${{ inputs.retention-days }}
+
+    - name: Package macOS app bundle
+      if: runner.os == 'macOS' && inputs.windowed == 'true'
+      shell: bash
+      run: |
+        if [ -d "dist/${inputs.name}.app" ]; then
+          ditto -c -k --keepParent "dist/${inputs.name}.app" "dist/${inputs.name}-macos.zip"
+        fi
+
+    - name: Upload artifact (macOS bundle)
+      if: runner.os == 'macOS' && inputs.windowed == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-prefix && format('{0}-macos', inputs.artifact-prefix) || format('{0}-macos', inputs.name) }}
+        path: dist/${{ inputs.name }}-macos.zip
+        retention-days: ${{ inputs.retention-days }}
+
+    - name: Upload artifact (macOS binary)
+      if: runner.os == 'macOS' && inputs.windowed != 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-prefix && format('{0}-macos', inputs.artifact-prefix) || format('{0}-macos', inputs.name) }}
+        path: dist/${{ inputs.name }}
+        retention-days: ${{ inputs.retention-days }}
+
+    - name: Upload artifact (Linux)
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-prefix && format('{0}-linux', inputs.artifact-prefix) || format('{0}-linux', inputs.name) }}
+        path: dist/${{ inputs.name }}
+        retention-days: ${{ inputs.retention-days }}
