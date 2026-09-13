@@ -30,12 +30,13 @@ jobs:
         with:
           prompt: |
             REPLACE_WITH_PROJECT_PROMPT
-          provider: opencode        # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
-          model: deepseek-v4-flash-free
-          api-key: ${{ secrets.OPENCODE_API_KEY }}
-          fallback-provider: opencode
-          fallback-model: gpt-4o-mini
-          fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          timeout-minutes: "50"
 
       - name: Commit changes (if any)
         shell: bash

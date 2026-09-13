@@ -31,5 +31,5 @@ jobs:
           fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }} # optional (VIRUSTOTAL badge)
-          virustotal-files: "target/release/*.exe,dist/*.exe,*.exe"
+          virustotal-files: "target/release/*.exe dist/*.exe *.exe" # space-separated globs
           test-cmd: "cargo test"                                 # optional verification

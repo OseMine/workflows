@@ -60,7 +60,12 @@ jobs:
           min-rating: "7"
           draft: ${{ github.event.inputs.draft || 'false' }}
           prerelease: ${{ github.event.inputs.prerelease || 'false' }}
-          api-key: ${{ secrets.OPENCODE_API_KEY }}    # optional, enables AI release notes
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}   # optional, enables AI release notes
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
 ```
 
 ### Security gate (PR/push)
@@ -77,28 +82,39 @@ jobs:
       - uses: OseMine/workflows/.github/actions/security@main
         with:
           min-rating: "7"
-          provider: opencode            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
-          model: deepseek-v4-flash-free
-          api-key: ${{ secrets.OPENCODE_API_KEY }}
-          fallback-provider: opencode
-          fallback-model: gpt-4o-mini
-          fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}
-          virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }}
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }}   # optional
 ```
 
 ## AI providers
 
 Every action that uses AI (security review, release notes, OpenCode automation)
-exposes the same provider/model/fallback API keys pattern:
+exposes the same provider/model/fallback API keys pattern, **and every template
+defaults them from repo variables** so you configure your AI once per repo:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `AI_PROVIDER` | Primary provider | `opencode` |
+| `AI_MODEL` | Primary model | `deepseek-v4-flash-free` |
+| `AI_FALLBACK_PROVIDER` | Fallback provider | `opencode` |
+| `AI_FALLBACK_MODEL` | Fallback model | `gpt-4o-mini` |
+| `CI_LANGUAGE` | CI language (templates/ci.yml) | `auto` |
+
+Inputs (set in the workflow or left to the vars above):
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `provider` | Primary AI provider | `opencode` |
-| `model` | Primary model | `deepseek-v4-flash-free` |
-| `api-key` | API key for primary provider | *(empty)* |
-| `fallback-provider` | Fallback provider | `opencode` |
-| `fallback-model` | Fallback model | `gpt-4o-mini` |
-| `fallback-api-key` | API key for fallback | *(empty)* |
+| `provider` | Primary AI provider | `${{ vars.AI_PROVIDER || 'opencode' }}` |
+| `model` | Primary model | `${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}` |
+| `api-key` | API key for primary provider | `${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}` |
+| `fallback-provider` | Fallback provider | `${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}` |
+| `fallback-model` | Fallback model | `${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}` |
+| `fallback-api-key` | API key for fallback | `${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}` |
 
 **Supported providers:** `opencode`, `google`, `openai`, `mistral`, `anthropic`,
 `x` (xAI/Grok), `deepseek`, `groq`, `puter`, `ollama` (local, no key).
@@ -111,10 +127,14 @@ Recommended setup — create one repo secret per provider you use:
 
 | Secret | Provider | Used by |
 |--------|----------|---------|
-| `OPENCODE_API_KEY` | OpenCode (their API gateway) | opencode, security, release |
 | `AI_API_KEY` | Your preferred provider's key | opencode, security, release |
+| `OPENCODE_API_KEY` | OpenCode (their API gateway) | fallback for all AI actions |
 | `VIRUSTOTAL_API_KEY` | VirusTotal | security |
 | `PUTER_AUTH_TOKEN` | Puter (optional, free token-gated models) | security, release |
+
+`AI_API_KEY` (a single secret) is enough for every AI action — set it once and
+the templates wire it everywhere, falling back to `OPENCODE_API_KEY` if you
+prefer OpenCode's gateway instead.
 
 The fallback ensures reliability — if the primary provider is down or has no
 credits, the run continues with the fallback.
@@ -135,15 +155,22 @@ jobs:
       - uses: OseMine/workflows/.github/actions/opencode@main
         with:
           prompt: "Analyze this Rust project for dead code and suggest removals"
-          provider: opencode
-          model: deepseek-v4-flash-free
-          api-key: ${{ secrets.AI_API_KEY }}
-          fallback-provider: openai
-          fallback-model: gpt-4o-mini
-          fallback-api-key: ${{ secrets.OPENAI_API_KEY }}
-      - uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit-message: "chore: opencode automation [skip ci]"
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+      - name: Commit changes (if any)
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore: opencode automation [skip ci]"
+            git push origin HEAD
+          else
+            echo "no changes to commit"
+          fi
 ```
 
 ## Available actions
@@ -164,6 +191,8 @@ jobs:
 | `bundle` | Tauri bundle per OS matrix | tauri |
 | `installer` | Inno Setup Windows installer | tauri |
 | `python-build` | sdist + wheel + smoke test | python |
+| `python-setup` | Python 3.12 + deps | python |
+| `pyinstaller` | PyInstaller one-file binary build | python |
 | `pypi-publish` | OIDC twine trusted publishing | python |
 | `cargo-publish` | Idempotent crates.io publish | rust |
 | `flutter-setup` | Flutter SDK + native deps | flutter |
@@ -171,7 +200,9 @@ jobs:
 | `kmp-setup` | Android SDK/NDK + Gradle cache | kmp |
 | `kmp-android-build` | Signed APK | kmp |
 | `kmp-ios-build` | Signed IPA (Xcode) | kmp |
-| `php-lint` | php -l across all .php files | php |
+| `android-build` | Native Android APK | android |
+| `ios-build` | Native iOS unsigned IPA | ios |
+| `php-lint` | PHP CodeSniffer / Psalm / PHPStan | php |
 | `shell-lint` | shellcheck across all .sh files | bash |
 | `nextcloud-app` | Nextcloud app packaging | nextcloud |
 
