@@ -1,85 +1,106 @@
-name: Release all platforms
+name: Release
 description: >-
-  One-call release pipeline for this collection. Resolves the version from the
-  tag or project files, validates semver, runs the per-language builds, applies
-  the security gate, generates AI release notes (with deterministic git-log
-  fallback), and creates the GitHub release with SHA256SUMS +
-  release-manifest.json. Update logic here once, consume everywhere.
+  Unified release pipeline. Two modes:
+  - full (default): version resolution -> builds -> security gate -> AI notes -> GitHub release with SHA256SUMS + manifest
+  - simple: download artifacts / use local files -> create GitHub release (with optional AI or auto-generated notes)
 author: gha-workflows
 
 inputs:
+  mode:
+    description: "Pipeline mode. 'full' = builds + security + AI notes; 'simple' = artifacts + release only."
+    required: false
+    default: full
   language:
-    description: >-
-      Main stack: auto, rust, tauri, node, python, flutter, kmp, php, lua.
-      Comma-separated lists allowed.
+    description: "Main stack: auto, rust, tauri, node, python, flutter, kmp, php, lua. Comma-separated."
     required: false
     default: auto
-  build:
-    description: >-
-      Comma-separated artifact groups to build. Supported: cargo, tauri,
-      plugin, installer, python, android, ios, flutter. 'all' builds
-      everything applicable.
-    required: false
-    default: all
   release-tag:
-    description: Version tag to use. Empty = auto-detect from pubspec.yaml /
-      Cargo.toml / package.json.
+    description: "Version tag to use. Empty = auto-detect from pubspec.yaml / Cargo.toml / package.json."
     required: false
-  min-rating:
-    description: Minimum security rating (0-10) required to release. 0 disables.
-    required: false
-    default: "7"
   draft:
-    description: Create the release as a draft.
+    description: "Create the release as a draft."
     required: false
     default: "false"
   prerelease:
-    description: >-
-      Mark the release as a prerelease (default false, or automatic from semver
-      pre-release tags).
+    description: "Mark as prerelease (default false, or auto from semver pre-release tags)."
     required: false
   github-token:
-    description: Token for creating the release. Defaults to github.token.
+    description: "Token for creating the release. Defaults to github.token."
     required: false
+  build:
+    description: "Comma-separated artifact groups (cargo, tauri, plugin, installer, python, android, ios, flutter). 'all' = everything."
+    required: false
+    default: all
+  min-rating:
+    description: "Minimum security rating (0-10) required to release. 0 disables."
+    required: false
+    default: "7"
   security:
-    description: Run the security gate before releasing.
+    description: "Run security gate before releasing."
     required: false
     default: "true"
-  release-notes-command:
-    description: Custom command/script for release notes. Env gets
-      RELEASE_TAG/RELEASE_NAME. Disables the AI + git-log defaults.
+  ios-scheme:
+    description: "Xcode scheme name for native iOS build (forwarded to ios-build)."
     required: false
-  opencode-version:
-    description: opencode-ai npm version for AI release notes.
-    required: false
-    default: 1.18.29
+    default: ""
   provider:
-    description: Primary AI provider for notes + security review (opencode, google, openai, mistral, anthropic, x, deepseek, groq, puter, ollama).
+    description: "Primary AI provider for notes + security (opencode, google, openai, mistral, anthropic, x, deepseek, groq, puter, ollama)."
     required: false
     default: opencode
   model:
-    description: Primary model ('provider/model' or model id).
+    description: "Primary model ('provider/model' or model id)."
     required: false
     default: deepseek-v4-flash-free
   api-key:
-    description: API key for the primary provider.
+    description: "API key for primary provider."
     required: false
   fallback-provider:
-    description: Fallback AI provider.
+    description: "Fallback AI provider."
     required: false
     default: opencode
   fallback-model:
-    description: Fallback model.
+    description: "Fallback model."
     required: false
     default: gpt-4o-mini
   fallback-api-key:
-    description: API key for the fallback provider (optional).
+    description: "API key for fallback provider."
+    required: false
+  opencode-version:
+    description: "opencode-ai npm version for AI release notes."
+    required: false
+    default: 1.18.29
+  artifact-pattern:
+    description: "Artifact names to download (leave empty to skip download)."
+    required: false
+    default: ""
+  artifacts:
+    description: "Glob pattern for local files to upload (e.g. 'dist/*')."
+    required: false
+    default: ""
+  notes-file:
+    description: "Path to pre-written release notes file."
+    required: false
+    default: ""
+  generate-notes:
+    description: "Use GitHub's auto-generated release notes."
+    required: false
+    default: "true"
+  release-notes-command:
+    description: "Custom command for release notes (disables AI + git-log). Env gets RELEASE_TAG/RELEASE_NAME."
     required: false
   version-file:
-    description: Path to a version file to consume when auto-detecting.
+    description: "Path to a version file to consume when auto-detecting."
     required: false
-  ios-scheme:
-    description: Xcode scheme name for the native iOS build (forwarded to ios-build).
+  use-opencode:
+    description: "Deprecated; use provider/model/api-key instead."
+    required: false
+    default: "false"
+  opencode-api-key:
+    description: "Deprecated alias for api-key."
+    required: false
+    default: ""
+  opencode-model:
+    description: "Deprecated alias for model."
     required: false
     default: ""
 
@@ -97,11 +118,9 @@ runs:
       run: |-
         set -euo pipefail
         echo "::group::Meta resolution"
-        # --- version source ---
         VERSION=""
         RELEASE_TAG="$TAG"
         if [ -z "$RELEASE_TAG" ]; then
-          # Only derive from GITHUB_REF on a tag push, not workflow_dispatch
           if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
             RELEASE_TAG="v${GITHUB_REF#refs/tags/v}"
           fi
@@ -118,7 +137,6 @@ runs:
             RELEASE_TAG="v${VERSION}"
           fi
         fi
-        # strip leading v for semver check
         SEMVER="${RELEASE_TAG#v}"
         if [[ "$SEMVER" =~ ^v[0-9] ]]; then SEMVER="${SEMVER#v}"; fi
         if ! [[ "$SEMVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
@@ -128,7 +146,6 @@ runs:
         RELEASE_NAME="Release $SEMVER"
         VERSION="$SEMVER"
 
-        # --- create branch/tag consistency check ---
         if [ -n "$GITHUB_REF" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
           TRIGGERED_TAG="${GITHUB_REF#refs/tags/}"
           if [ "$TRIGGERED_TAG" != "$RELEASE_TAG" ]; then
@@ -136,7 +153,6 @@ runs:
           fi
         fi
 
-        # --- build flags ---
         FLAGS=""
         REQUESTED="$BUILD"
         [ -z "$REQUESTED" ] && REQUESTED="all"
@@ -158,19 +174,15 @@ runs:
         done
         FLAGS="${FLAGS#,}"
 
-        # language-aware pruning: only build what matches the stack
         LANG="${{ inputs.language }}"
         [ -z "$LANG" ] || [ "$LANG" = "auto" ] && LANG="rust,node,python,flutter,kmp,php,lua,tauri"
         PRUNED=""
         IFS=',' read -ra la <<< "$LANG"
         for flag in cargo tauri plugin installer python android ios flutter; do
           echo ",$FLAGS," | grep -q ",$flag," || continue
-          # keep plugin/installer for rust builds unless python package named
           echo ",$PRUNED," | grep -q ",$flag," && continue
           PRUNED="${PRUNED},$flag"
         done
-        # allow plugin/installer/payload builds for rust/tauri stacks even
-        # defaulting to not being language entries -- they map through cargo
         echo "build_flags=${FLAGS}" >> "$GITHUB_OUTPUT"
         echo "language=$LANG" >> "$GITHUB_OUTPUT"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -180,6 +192,7 @@ runs:
         echo "meta: tag=$RELEASE_TAG name=$RELEASE_NAME flags=$FLAGS"
 
     - name: Resolve language (auto-detect if not given)
+      if: ${{ inputs.mode == 'full' }}
       id: lang
       shell: bash
       working-directory: ${{ github.workspace }}
@@ -200,7 +213,7 @@ runs:
         echo "language=$LANG" >> "$GITHUB_OUTPUT"
 
     - name: Run security gate
-      if: ${{ inputs.security == 'true' }}
+      if: ${{ inputs.mode == 'full' && inputs.security == 'true' }}
       uses: OseMine/workflows/.github/actions/security@main
       with:
         min-rating: ${{ inputs.min-rating }}
@@ -212,9 +225,8 @@ runs:
         fallback-api-key: ${{ inputs.fallback-api-key }}
         virustotal-api-key: ""
 
-    # ---------- Builds (gated per flag) ----------
     - name: Rust / Cargo release build
-      if: contains(steps.meta.outputs.build_flags, 'cargo')
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'cargo') }}
       shell: bash
       working-directory: ${{ github.workspace }}
       run: |-
@@ -226,45 +238,80 @@ runs:
         fi
 
     - name: Python package (sdist + wheel)
-      if: contains(steps.meta.outputs.build_flags, 'python')
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'python') }}
       uses: OseMine/workflows/.github/actions/python-build@main
 
     - name: Flutter APK + AAB + IPA
-      if: contains(steps.meta.outputs.build_flags, 'flutter')
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'flutter') }}
       uses: OseMine/workflows/.github/actions/flutter-build@main
 
     - name: Android APK (native)
-      if: contains(steps.meta.outputs.build_flags, 'android')
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'android') }}
       uses: OseMine/workflows/.github/actions/android-build@main
 
     - name: iOS unsigned IPA (native)
-      if: contains(steps.meta.outputs.build_flags, 'ios') && inputs.ios-scheme != ''
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'ios') && inputs.ios-scheme != '' }}
       uses: OseMine/workflows/.github/actions/ios-build@main
       with:
         scheme: ${{ inputs.ios-scheme }}
 
     - name: KMP Android build
-      if: contains(steps.meta.outputs.build_flags, 'android') && contains(steps.lang.outputs.language, 'kmp')
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'android') && contains(steps.lang.outputs.language, 'kmp') }}
       uses: OseMine/workflows/.github/actions/kmp-android-build@main
 
-    - name: Generate SHA256SUMS + manifest
+    - name: Collect artifacts
       shell: bash
       working-directory: ${{ github.workspace }}
       run: |-
         set -euo pipefail
         mkdir -p dist
-        # collect artifacts that exist
-        for dir in target/release dist/release build/Release dist_signed/bin artifacts out; do
-          [ -d "$dir" ] || continue
-          find "$dir" -maxdepth 2 -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.dmg' -o -name '*.apk' -o -name '*.aab' -o -name '*.ipa' -o -name '*.tar.gz' -o -name '*.whl' -o -name '*.zip' -o -name '*.nocache' \) 2>/dev/null -print0 | xargs -0 -r -I{} cp -n {} dist/ 2>/dev/null || true
-        done
+
+        if [ -n "${{ inputs.artifact-pattern }}" ]; then
+          echo "::group::Download artifacts"
+          echo "Artifact pattern provided: ${{ inputs.artifact-pattern }}"
+          echo "::endgroup::"
+        fi
+
+        if [ "${{ inputs.mode }}" = "full" ]; then
+          for dir in target/release dist/release build/Release dist_signed/bin artifacts out; do
+            [ -d "$dir" ] || continue
+            find "$dir" -maxdepth 2 -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.dmg' -o -name '*.apk' -o -name '*.aab' -o -name '*.ipa' -o -name '*.tar.gz' -o -name '*.whl' -o -name '*.zip' -o -name '*.nocache' \) 2>/dev/null -print0 | xargs -0 -r -I{} cp -n {} dist/ 2>/dev/null || true
+          done
+        else
+          if [ -n "${{ inputs.artifacts }}" ]; then
+            echo "Collecting local artifacts: ${{ inputs.artifacts }}"
+            find . -name "${{ inputs.artifacts }}" -type f -exec cp -n {} dist/ \; 2>/dev/null || true
+          fi
+        fi
+
+    - name: Download workflow artifacts
+      if: ${{ inputs.mode == 'simple' && inputs.artifact-pattern != '' }}
+      uses: actions/download-artifact@v4
+      with:
+        pattern: ${{ inputs.artifact-pattern }}
+        path: artifacts
+        merge-multiple: true
+
+    - name: Merge downloaded artifacts into dist
+      if: ${{ inputs.mode == 'simple' && inputs.artifact-pattern != '' }}
+      shell: bash
+      run: |
+        if [ -d "artifacts" ]; then
+          cp -n artifacts/* dist/ 2>/dev/null || true
+        fi
+
+    - name: Generate SHA256SUMS + manifest
+      if: ${{ inputs.mode == 'full' }}
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |-
+        set -euo pipefail
         if [ -z "$(find dist -type f | head -1)" ]; then
           echo "::warning::no artifacts found for checksums"
           exit 0
         fi
         (cd dist && sha256sum * > SHA256SUMS.txt 2>/dev/null || true)
         find dist -maxdepth 1 -type f | xargs -I{} basename {} > dist/manifest.txt
-        # build release-manifest.json
         if command -v jq >/dev/null; then
           echo '{' > dist/release-manifest.json
           (cd dist && sha256sum *) | while read -r h f; do
@@ -287,7 +334,7 @@ runs:
         OPENCODE_PKG: opencode-ai@${{ inputs.opencode-version }}
         PROV1: ${{ inputs.provider }}
         MODEL1: ${{ inputs.model }}
-        KEY1: ${{ inputs.api-key }}
+        KEY1: ${{ inputs.api-key != '' && inputs.api-key || inputs.opencode-api-key }}
         PROV2: ${{ inputs.fallback-provider }}
         MODEL2: ${{ inputs.fallback-model }}
         KEY2: ${{ inputs.fallback-api-key }}
@@ -295,6 +342,14 @@ runs:
         set -uo pipefail
         mkdir -p reports
         NOTES="reports/release-notes-${RELEASE_TAG}.md"
+
+        if [ -n "${{ inputs.notes-file }}" ] && [ -f "${{ inputs.notes-file }}" ]; then
+          cp "${{ inputs.notes-file }}" "$NOTES"
+          echo "Using pre-written notes from ${{ inputs.notes-file }}"
+          echo "path=$NOTES" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
         apply_key() {
           case "$1" in
             opencode)   export OPENCODE_API_KEY="$2" ;;
@@ -312,8 +367,29 @@ runs:
         }
         needs_key() { case "$1" in ollama|opencode|puter) return 1 ;; *) return 0 ;; esac; }
         full_model() { case "$2" in */*) echo "$2" ;; *) echo "$1/$2" ;; esac; }
+
         if [ -n "${{ inputs.release-notes-command }}" ]; then
           eval "${{ inputs.release-notes-command }}" > "$NOTES" 2>&1 || true
+        elif [ "${{ inputs.use-opencode }}" = "true" ] || [ -n "${{ inputs.opencode-api-key }}" ]; then
+          wrote=0
+          for i in 1 2; do
+            eval "p=\${PROV$i}"; eval "m=\${MODEL$i}"; eval "k=\${KEY$i}"
+            [ -z "$p" ] && continue
+            m=$(full_model "$p" "$m")
+            if needs_key "$p" && [ -z "$k" ]; then
+              echo "::warning::provider '$p' needs an API key - skipping $m for notes"
+              continue
+            fi
+            apply_key "$p" "$k"
+            echo "--- release notes via: $m (provider: $p) ---"
+            if npx --yes "$OPENCODE_PKG" run --auto --model "$m" \
+              "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
+              wrote=1
+              break
+            fi
+            echo "::warning::AI notes failed with $m, trying fallback"
+          done
+          [ "$wrote" -eq 0 ] && rm -f "$NOTES"
         else
           wrote=0
           for i in 1 2; do
@@ -335,12 +411,13 @@ runs:
           done
           [ "$wrote" -eq 0 ] && rm -f "$NOTES"
         fi
+
         if [ ! -s "$NOTES" ]; then
           echo "## $RELEASE_NAME" > "$NOTES"
           echo "" >> "$NOTES"
           git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD" 2>/dev/null >> "$NOTES" || \
             git log --oneline -20 >> "$NOTES" || true
-          echo "(notes generated from git log — run with api-key for AI notes)" >> "$NOTES"
+          echo "(notes generated from git log -- run with api-key for AI notes)" >> "$NOTES"
         fi
         echo "path=$NOTES" >> "$GITHUB_OUTPUT"
 
