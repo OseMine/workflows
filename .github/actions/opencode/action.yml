@@ -8,8 +8,17 @@ author: gha-workflows
 
 inputs:
   prompt:
-    description: Prompt/task to run (project-specific text).
-    required: true
+    description: >-
+      Prompt/task to run (project-specific text). Use prompt-file instead when
+      the prompt needs runtime content (git diff, real issues, etc.).
+    required: false
+    default: ""
+  prompt-file:
+    description: >-
+      Path (absolute or relative to working-directory) to a file containing the
+      prompt. Prefers prompt-file over prompt when both are set.
+    required: false
+    default: ""
   agent:
     description: opencode agent to use.
     required: false
@@ -74,7 +83,6 @@ runs:
       id: run
       shell: bash
       working-directory: ${{ github.workspace }}/${{ inputs.working-directory }}
-      timeout-minutes: ${{ inputs.timeout-minutes }}
       env:
         OPENCODE_ENV: github-actions
         GITHUB_TOKEN: ${{ github.token }}
@@ -87,8 +95,18 @@ runs:
         KEY2: ${{ inputs.fallback-api-key }}
         AGENT: ${{ inputs.agent }}
         PROMPT: ${{ inputs.prompt }}
+        PROMPT_FILE: ${{ inputs.prompt-file }}
+        TIMEOUT_MIN: ${{ inputs.timeout-minutes }}
       run: |-
         set -u
+        # prefer prompt-file (may contain runtime data) over inline prompt
+        if [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
+          PROMPT=$(cat "$PROMPT_FILE")
+        fi
+        if [ -z "${PROMPT:-}" ]; then
+          echo "::error::no prompt given (set 'prompt' or 'prompt-file')"
+          exit 1
+        fi
         # ---- map provider -> the API key env var opencode expects ----
         apply_key() {
           local p="$1" k="$2"
@@ -113,6 +131,14 @@ runs:
         full_model() {
           case "$2" in */*) echo "$2" ;; *) echo "$1/$2" ;; esac
         }
+        run_npx() {
+          # composite steps cannot set timeout-minutes; enforce via GNU timeout
+          if [ -n "$TIMEOUT_MIN" ] && command -v timeout >/dev/null 2>&1; then
+            timeout "${TIMEOUT_MIN}m" "$@"
+          else
+            "$@"
+          fi
+        }
         try_model() {
           local p="$1" m="$2" k="$3"
           m=$(full_model "$p" "$m")
@@ -122,7 +148,7 @@ runs:
           fi
           apply_key "$p" "$k"
           echo "--- trying model: $m ---"
-          if npx --yes "$PACKAGE" run --model "$m" --agent "$AGENT" --auto "$PROMPT" 2>&1; then
+          if run_npx npx --yes "$PACKAGE" run --model "$m" --agent "$AGENT" --auto "$PROMPT" 2>&1; then
             echo "OpenCode succeeded with model: $m (provider: $p)" >> "$GITHUB_STEP_SUMMARY"
             echo "SUCCEEDED_MODEL=$m" >> "$GITHUB_ENV"
             return 0
@@ -131,7 +157,7 @@ runs:
           echo "::warning::opencode failed with model $m (exit $code)"
           return 1
         }
-        npx --yes "$PACKAGE" --version >/dev/null 2>&1 || npm install -g --silent "$PACKAGE" >/dev/null 2>&1
+        run_npx npx --yes "$PACKAGE" --version >/dev/null 2>&1 || npm install -g --silent "$PACKAGE" >/dev/null 2>&1
         if ! try_model "$PROV1" "$MODEL1" "$KEY1"; then
           try_model "$PROV2" "$MODEL2" "$KEY2"
           echo "::error::all providers failed"

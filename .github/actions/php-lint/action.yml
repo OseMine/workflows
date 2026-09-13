@@ -25,7 +25,7 @@ runs:
   using: composite
   steps:
     - name: Set up PHP
-      uses: shivammathur/setup-php@cf4cade2721270509d5b1c7a6f29b595a91a5e0a # v2
+      uses: shivammathur/setup-php@v2
       with:
         php-version: ${{ inputs.php-version }}
         tools: composer

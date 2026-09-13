@@ -2,16 +2,19 @@
 
 A collection of reusable composite GitHub Actions you can consume from **any**
 project. All logic lives in this repository; projects only copy a thin
-workflow (set `language:`) and point actions at `YOUR_ORG/gha-workflows@main`.
+workflow (set `language:`) and point actions at `OseMine/workflows@main`.
 
 Update a composite action once → every consuming project inherits the fix.
 
 ## Usage (fast path)
 
 1. **Copy a template** from `templates/` into your project's `.github/workflows/`.
-2. **Replace** `YOUR_ORG/gha-workflows` with your GitHub org/repo.
-3. Set `language:`, `build:` or `prompt:` as needed.
-4. Commit, push, done.
+2. Set `language:`, `build:` or `prompt:` as needed.
+3. Commit, push, done.
+
+The templates already point at `OseMine/workflows@main`, so no action ref
+edits are needed. If you fork this repo, replace `OseMine/workflows` with your
+own org/repo throughout `templates/` and `.github/actions/`.
 
 ### CI (push/PR quality gate)
 
@@ -23,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: YOUR_ORG/gha-workflows/.github/actions/ci@main
+      - uses: OseMine/workflows/.github/actions/ci@main
         with:
           language: rust    # auto | rust | tauri | node | python | flutter | kmp | php | lua
 ```
@@ -49,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: {fetch-depth: 0}
-      - uses: YOUR_ORG/gha-workflows/.github/actions/release-all@main
+      - uses: OseMine/workflows/.github/actions/release-all@main
         with:
           language: rust
           build: ${{ github.event.inputs.build || 'all' }}
@@ -71,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: YOUR_ORG/gha-workflows/.github/actions/security@main
+      - uses: OseMine/workflows/.github/actions/security@main
         with:
           min-rating: "7"
           provider: opencode            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
@@ -129,7 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: {fetch-depth: 0, persist-credentials: true}
-      - uses: YOUR_ORG/gha-workflows/.github/actions/opencode@main
+      - uses: OseMine/workflows/.github/actions/opencode@main
         with:
           prompt: "Analyze this Rust project for dead code and suggest removals"
           provider: opencode
@@ -174,17 +177,20 @@ jobs:
 
 ## Templates
 
-Thin copy-paste workflows in `templates/` — set `language:` or `prompt:` and commit:
+Thin copy-paste workflows in `templates/` — set `language:` or `prompt:` and commit.
+AI provider/model are configurable per repo via `vars` (`AI_PROVIDER`,
+`AI_MODEL`, `AI_API_KEY`, `AI_FALLBACK_PROVIDER`, `AI_FALLBACK_MODEL`) and repo
+secrets (`AI_API_KEY`, `OPENCODE_API_KEY`).
 
 ```
 templates/
-  ci.yml              ← push/PR quality gate
-  release.yml         ← tag release (tauri/rust/flutter/...)
+  ci.yml              ← push/PR quality gate (language auto-detect per repo variable CI_LANGUAGE)
+  release.yml         ← workflow_dispatch release (version auto-detect, prerelease/draft/build inputs)
   security.yml        ← Trivy + audits + AI + VirusTotal
   opencode.yml        ← generic AI automation
   opencode-review.yml ← PR review + merge/proceed + branch cleanup
   opencode-todo-issues.yml ← sync open issues to todo.md
-  nightly.yml         ← scheduled build placeholder
+  nightly.yml         ← scheduled checks (reuses `ci`)
   codeql.yml          ← CodeQL static analysis
   deploy-web.yml      ← Vercel/web deploy
 ```
@@ -205,16 +211,16 @@ LICENSE
 
 ### 1. Publish this repo
 
-Push to your GitHub org under the name `gha-workflows` (or rename to your
-preferred library name).
+This repo is already wired for `OseMine/workflows@main`. Push to GitHub and
+templates work out of the box.
 
-### 2. Replace the placeholder
+### 2. Forking?
 
-In every template and action, replace `YOUR_ORG/gha-workflows` with your
-GitHub `owner/repo`. A single sed for the whole repo:
+If you fork this repo (e.g. into your own org), replace `OseMine/workflows`
+with your GitHub `owner/repo` everywhere. A single sed for the whole repo:
 
 ```bash
-find . -name '*.yml' -exec sed -i 's|YOUR_ORG/gha-workflows|OWNER/REPO|g' {} +
+find . -name '*.yml' -exec sed -i 's|OseMine/workflows|OWNER/REPO|g' {} +
 ```
 
 ### 3. Copy workflows into your project
@@ -253,7 +259,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: YOUR_ORG/gha-workflows/.github/actions/ci@main
+      - uses: OseMine/workflows/.github/actions/ci@main
         with:
           language: tauri
 ```

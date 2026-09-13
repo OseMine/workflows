@@ -23,7 +23,7 @@ runs:
   using: composite
   steps:
     - name: Install Python
-      uses: YOUR_ORG/gha-workflows/.github/actions/setup-python@main
+      uses: OseMine/workflows/.github/actions/setup-python@main
       with:
         python-version: ${{ inputs.python-version }}
 

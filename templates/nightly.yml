@@ -18,9 +18,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Add a build/test action for your stack, e.g.:
-      # - uses: YOUR_ORG/gha-workflows/.github/actions/ci@main
-      #   with:
-      #     language: auto
+      - uses: OseMine/workflows/.github/actions/ci@main
+        with:
+          language: ${{ vars.CI_LANGUAGE || 'auto' }}
+          rust-toolchain: stable
+
+      # Extend with your stack's build actions, e.g.:
+      # - uses: OseMine/workflows/.github/actions/flutter-build@main
 
       - run: echo "Nightly checks completed"

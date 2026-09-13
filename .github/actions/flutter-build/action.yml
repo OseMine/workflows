@@ -42,7 +42,7 @@ runs:
         java-version: ${{ inputs.java-version }}
 
     - name: Setup Flutter
-      uses: YOUR_ORG/gha-workflows/.github/actions/flutter-setup@main
+      uses: OseMine/workflows/.github/actions/flutter-setup@main
       with:
         native-cache-name: android
         native-cache-path: ~/.cache/flutter
@@ -60,6 +60,7 @@ runs:
 
     - name: Build Android APKs
       if: inputs.build-apk == 'true'
+      shell: bash
       run: |
         flutter build apk --release
         mkdir -p universal_apk
@@ -70,10 +71,12 @@ runs:
 
     - name: Build Android AAB
       if: inputs.build-aab == 'true'
+      shell: bash
       run: flutter build appbundle --release
 
     - name: Build iOS IPA (no codesign)
       if: inputs.build-ipa == 'true'
+      shell: bash
       run: flutter build ios --release --no-codesign
 
     - name: Prepare release artifacts

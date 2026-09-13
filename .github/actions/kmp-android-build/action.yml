@@ -33,7 +33,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: YOUR_ORG/gha-workflows/.github/actions/kmp-setup@main
+    - uses: OseMine/workflows/.github/actions/kmp-setup@main
       with:
         java-version: ${{ inputs.java-version }}
         gradle-version: ${{ inputs.gradle-version }}
@@ -68,7 +68,7 @@ runs:
         echo "APK: $APK ($(du -h "$APK" | cut -f1))"
 
     - name: Upload APK artifact
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
         path: "**/android-app/**/*.apk"

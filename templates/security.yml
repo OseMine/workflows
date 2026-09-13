@@ -21,15 +21,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: YOUR_ORG/gha-workflows/.github/actions/security@main
+      - uses: OseMine/workflows/.github/actions/security@main
         with:
           min-rating: "7"
-          provider: opencode        # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
-          model: deepseek-v4-flash-free
-          api-key: ${{ secrets.OPENCODE_API_KEY }}     # optional (AI review)
-          fallback-provider: opencode
-          fallback-model: gpt-4o-mini
-          fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }} # optional (VIRUSTOTAL badge)
           virustotal-files: "target/release/*.exe,dist/*.exe,*.exe"
           test-cmd: "cargo test"                                 # optional verification

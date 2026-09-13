@@ -31,6 +31,10 @@ inputs:
     description: "Generate release notes with OpenCode AI"
     required: false
     default: "false"
+  opencode-api-key:
+    description: "OpenCode API key (pass the repo's OPENCODE_API_KEY secret)"
+    required: false
+    default: ""
   opencode-model:
     description: "OpenCode model for release notes generation"
     required: false
@@ -51,7 +55,7 @@ runs:
       if: inputs.use-opencode == 'true'
       shell: bash
       env:
-        OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        OPENCODE_API_KEY: ${{ inputs.opencode-api-key }}
       run: |
         curl -fsSL https://opencode.ai/install.sh | bash
         export PATH="$HOME/.opencode/bin:$PATH"
@@ -76,7 +80,7 @@ runs:
     - name: Create GitHub release
       shell: bash
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         NOTES_ARGS=""
         if [ -n "${{ inputs.notes-file }}" ] && [ -f "${{ inputs.notes-file }}" ]; then

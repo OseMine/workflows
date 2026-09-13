@@ -13,13 +13,13 @@ runs:
   using: composite
   steps:
     - name: Set up JDK
-      uses: actions/setup-java@0147580e7d12821e959687248b8743e0b809de27 # v4
+      uses: actions/setup-java@v6
       with:
         distribution: temurin
         java-version: ${{ inputs.java-version }}
 
     - name: Cache Gradle
-      uses: actions/cache@064f3d72ea52e4766041da6d48629af1c6a3114e # v5
+      uses: actions/cache@v6
       with:
         path: |
           ~/.gradle/caches
@@ -28,7 +28,7 @@ runs:
         restore-keys: gradle-${{ runner.os }}-
 
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@01630b9ef29356e76b286a1942398b8da34c5c51 # v4
+      uses: gradle/actions/setup-gradle@v4
 
     - name: Set Gradle wrapper version
       if: inputs.gradle-version != ''

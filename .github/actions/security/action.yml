@@ -109,7 +109,7 @@ runs:
 
     # --- Dependency & secret scanning ---
     - name: Trivy filesystem scan (dependencies + secrets)
-      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      uses: aquasecurity/trivy-action@v0.36.0
       with:
         scan-type: fs
         scan-ref: .
@@ -121,7 +121,7 @@ runs:
 
     - name: Install cargo-audit (if Cargo.lock exists)
       if: ${{ hashFiles('**/Cargo.lock') != '' }}
-      uses: taiki-e/install-action@ba47c86ac325773530516bb756137ac718732518 # v2
+      uses: taiki-e/install-action@v2
       with:
         tool: cargo-audit
 

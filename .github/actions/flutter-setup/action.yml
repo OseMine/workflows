@@ -41,4 +41,5 @@ runs:
         key: ${{ runner.os }}-${{ inputs.native-cache-name }}-${{ hashFiles('pubspec.lock') }}
 
     - name: Install Dependencies
+      shell: bash
       run: flutter pub get

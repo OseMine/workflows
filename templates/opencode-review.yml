@@ -39,11 +39,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'opencode' }}
-          AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
-          AI_API_KEY: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
         run: |-
           ISSUES=$(gh issue list --state open --json number,title,labels \
             --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name] | join(","))"')
@@ -59,35 +54,41 @@ jobs:
           fi
 
           echo "$ISSUES" > /tmp/issues.txt
+          cat > /tmp/sync-prompt.txt <<'EOF'
+          Lies todo.md und füge offene GitHub-Issues hinzu.
 
-          case "$AI_PROVIDER" in
-            google) export GOOGLE_API_KEY="$AI_API_KEY" ;;
-            openai) export OPENAI_API_KEY="$AI_API_KEY" ;;
-            mistral) export MISTRAL_API_KEY="$AI_API_KEY" ;;
-            anthropic) export ANTHROPIC_API_KEY="$AI_API_KEY" ;;
-            x|xai) export XAI_API_KEY="$AI_API_KEY" ;;
-            deepseek) export DEEPSEEK_API_KEY="$AI_API_KEY" ;;
-            groq) export GROQ_API_KEY="$AI_API_KEY" ;;
-            puter) export PUTER_AUTH_TOKEN="$AI_API_KEY" ;;
-            *) export OPENCODE_API_KEY="$AI_API_KEY" ;;
-          esac
+          Offene Issues (aus der GitHub API):
+          EOF
+          cat /tmp/issues.txt >> /tmp/sync-prompt.txt
+          cat >> /tmp/sync-prompt.txt <<'EOF'
 
-          npx opencode-ai@latest run \
-            --model "$AI_PROVIDER/$AI_MODEL" \
-            --auto \
-            "Lies todo.md und füge offene GitHub-Issues hinzu.
+          Regeln:
+          1. Lies todo.md vollständig
+          2. Füge jedes Issue als '- [ ] #<number> <title> [<labels>]' hinzu
+          3. Überspringe Issues, die bereits in todo.md existieren (gleiche Nummer)
+          4. Behalte die bestehende Struktur bei
+          5. Speichere die Änderungen in todo.md
+          6. Committen Sie die Datei
+          EOF
 
-            Offene Issues (aus der GitHub API):
-            $(cat /tmp/issues.txt)
+      - name: Sync issues into todo.md (AI)
+        uses: OseMine/workflows/.github/actions/opencode@main
+        with:
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          prompt-file: /tmp/sync-prompt.txt
+          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>
 
-            Regeln:
-            1. Lies todo.md vollständig
-            2. Füge jedes Issue als '- [ ] #<number> <title> [<labels>]' hinzu
-            3. Überspringe Issues, die bereits in todo.md existieren (gleiche Nummer)
-            4. Behalte die bestehende Struktur bei
-            5. Speichere die Änderungen in todo.md
-            6. Committen Sie die Datei" 2>&1 || echo "opencode finished with error"
-
+      - name: Push todo.md
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           if [ -n "$(git status --porcelain todo.md)" ]; then
             git add todo.md
             git commit -m "chore: sync open issues to todo.md"
@@ -116,21 +117,18 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run OpenCode review
-        # Uses the wire format of the anomalyco/opencode/github action, but the
-        # provider/model are configurable via repo variables.
-        uses: anomalyco/opencode/github@latest
+        uses: OseMine/workflows/.github/actions/opencode@main
         id: review
-        env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GIT_AUTHOR_NAME: GitHub Actions
-          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: GitHub Actions
-          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
         with:
-          model: ${{ vars.AI_MODEL || 'opencode/deepseek-v4-flash-free' }}
-          agent: reviewer
-          use_github_token: true
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          agent: ${{ vars.REVIEW_AGENT || 'build' }}
+          timeout-minutes: "55"
+          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>
           prompt: |
             Automated code review of this project.
             Focus area: ${{ github.event.inputs.focus || 'the entire project' }}
@@ -201,61 +199,42 @@ jobs:
           echo "prs<<EOF" >> "$GITHUB_OUTPUT"
           echo "$PRS" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "$PRS" > /tmp/prs.txt
 
-      - name: Review and merge PRs
+      - name: Build PR review prompt
         if: steps.prs.outputs.prs != ''
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'opencode' }}
-          AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
-          AI_API_KEY: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
         run: |
-          while IFS=$'\t' read -r number title head_ref; do
-            [ -z "$number" ] && continue
-            echo "=== Reviewing PR #$number: $title ==="
+          cat > /tmp/pr-review-prompt.txt <<'EOF'
+          For each open pull request below:
+          1. git fetch origin pull/<number>/head:pr-<number>
+          2. git checkout pr-<number>
+          3. Review the PR. Evaluate: 1) Code correctness, 2) Project conventions,
+             3) Security.
+          4. Decide: MERGE / APPROVE / REJECT.
+          5. Apply the decision with the gh CLI (GITHUB_TOKEN is set):
+             - MERGE   -> gh pr merge <number> --squash --delete-branch
+             - APPROVE -> gh pr review <number> --approve --body "<one-line rationale>"
+             - REJECT  -> gh pr comment <number> --body "Automated review: <rationale>"
+          6. git checkout main || git checkout master
 
-            git fetch origin "pull/$number/head:pr-$number" 2>/dev/null || continue
-            git checkout "pr-$number" 2>/dev/null || continue
+          Open PRs (number, title, headRef):
+          EOF
+          cat /tmp/prs.txt >> /tmp/pr-review-prompt.txt
 
-            case "$AI_PROVIDER" in
-              google) export GOOGLE_API_KEY="$AI_API_KEY" ;;
-              openai) export OPENAI_API_KEY="$AI_API_KEY" ;;
-              mistral) export MISTRAL_API_KEY="$AI_API_KEY" ;;
-              anthropic) export ANTHROPIC_API_KEY="$AI_API_KEY" ;;
-              x|xai) export XAI_API_KEY="$AI_API_KEY" ;;
-              deepseek) export DEEPSEEK_API_KEY="$AI_API_KEY" ;;
-              groq) export GROQ_API_KEY="$AI_API_KEY" ;;
-              puter) export PUTER_AUTH_TOKEN="$AI_API_KEY" ;;
-              *) export OPENCODE_API_KEY="$AI_API_KEY" ;;
-            esac
-
-            npx opencode-ai@latest run \
-              --model "$AI_PROVIDER/$AI_MODEL" \
-              --auto \
-              "Review this PR. Evaluate: 1) Code correctness, 2) Project conventions, 3) Security.
-               Respond with exactly one of: MERGE / APPROVE / REJECT followed by a one-line rationale." \
-              > /tmp/review-result.txt 2>&1 || true
-
-            RESULT=$(grep -E '^(MERGE|APPROVE|REJECT)' /tmp/review-result.txt | head -1 || echo "REJECT")
-            RATIONALE=$(tail -n +2 /tmp/review-result.txt 2>/dev/null | tr '\n' ' ' || echo "Review failed")
-
-            git checkout main 2>/dev/null || git checkout master 2>/dev/null
-
-            case "$RESULT" in
-              MERGE)
-                gh pr merge "$number" --squash --delete-branch 2>&1 || echo "Failed to merge PR #$number"
-                ;;
-              APPROVE)
-                gh pr review "$number" --approve --body "$RATIONALE" 2>&1 || echo "Failed to approve PR #$number"
-                ;;
-              *)
-                gh pr comment "$number" --body "Automated review: $RATIONALE" 2>&1 || echo "Failed to comment on PR #$number"
-                ;;
-            esac
-          done <<< "${{ steps.prs.outputs.prs }}"
+      - name: Review open PRs (AI)
+        if: steps.prs.outputs.prs != ''
+        uses: OseMine/workflows/.github/actions/opencode@main
+        with:
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          timeout-minutes: "55"
+          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>
+          prompt-file: /tmp/pr-review-prompt.txt
 
   branch-cleanup:
     name: Delete stale branches

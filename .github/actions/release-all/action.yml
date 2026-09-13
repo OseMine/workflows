@@ -197,7 +197,7 @@ runs:
 
     - name: Run security gate
       if: ${{ inputs.security == 'true' }}
-      uses: YOUR_ORG/gha-workflows/.github/actions/security@main
+      uses: OseMine/workflows/.github/actions/security@main
       with:
         min-rating: ${{ inputs.min-rating }}
         provider: ${{ inputs.provider }}
@@ -223,23 +223,23 @@ runs:
 
     - name: Python package (sdist + wheel)
       if: contains(steps.meta.outputs.build_flags, 'python')
-      uses: YOUR_ORG/gha-workflows/.github/actions/python-build@main
+      uses: OseMine/workflows/.github/actions/python-build@main
 
     - name: Flutter APK + AAB + IPA
       if: contains(steps.meta.outputs.build_flags, 'flutter')
-      uses: YOUR_ORG/gha-workflows/.github/actions/flutter-build@main
+      uses: OseMine/workflows/.github/actions/flutter-build@main
 
     - name: Android APK (native)
       if: contains(steps.meta.outputs.build_flags, 'android')
-      uses: YOUR_ORG/gha-workflows/.github/actions/android-build@main
+      uses: OseMine/workflows/.github/actions/android-build@main
 
     - name: iOS unsigned IPA (native)
       if: contains(steps.meta.outputs.build_flags, 'ios')
-      uses: YOUR_ORG/gha-workflows/.github/actions/ios-build@main
+      uses: OseMine/workflows/.github/actions/ios-build@main
 
     - name: KMP Android build
       if: contains(steps.meta.outputs.build_flags, 'android') && contains(steps.lang.outputs.language, 'kmp')
-      uses: YOUR_ORG/gha-workflows/.github/actions/kmp-android-build@main
+      uses: OseMine/workflows/.github/actions/kmp-android-build@main
 
     - name: Generate SHA256SUMS + manifest
       shell: bash
@@ -339,7 +339,7 @@ runs:
         echo "path=$NOTES" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub release
-      uses: YOUR_ORG/gha-workflows/.github/actions/github-release@main
+      uses: OseMine/workflows/.github/actions/github-release@main
       with:
         github-token: ${{ inputs.github-token || github.token }}
         tag: ${{ steps.meta.outputs.release_tag }}

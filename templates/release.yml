@@ -47,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: YOUR_ORG/gha-workflows/.github/actions/release-all@main
+      - uses: OseMine/workflows/.github/actions/release-all@main
         with:
           language: rust            # auto | rust | tauri | node | python | flutter | kmp
           build: ${{ github.event.inputs.build || 'all' }}
@@ -55,9 +55,9 @@ jobs:
           min-rating: "7"           # security gate 0-10; 0 disables
           draft: ${{ github.event.inputs.draft || 'false' }}
           prerelease: ${{ github.event.inputs.prerelease || 'false' }}
-          provider: opencode        # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
-          model: deepseek-v4-flash-free
-          api-key: ${{ secrets.OPENCODE_API_KEY }}
-          fallback-provider: opencode
-          fallback-model: gpt-4o-mini
-          fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}
+          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
+          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
