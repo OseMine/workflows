@@ -78,6 +78,10 @@ inputs:
   version-file:
     description: Path to a version file to consume when auto-detecting.
     required: false
+  ios-scheme:
+    description: Xcode scheme name for the native iOS build (forwarded to ios-build).
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -234,8 +238,10 @@ runs:
       uses: OseMine/workflows/.github/actions/android-build@main
 
     - name: iOS unsigned IPA (native)
-      if: contains(steps.meta.outputs.build_flags, 'ios')
+      if: contains(steps.meta.outputs.build_flags, 'ios') && inputs.ios-scheme != ''
       uses: OseMine/workflows/.github/actions/ios-build@main
+      with:
+        scheme: ${{ inputs.ios-scheme }}
 
     - name: KMP Android build
       if: contains(steps.meta.outputs.build_flags, 'android') && contains(steps.lang.outputs.language, 'kmp')
