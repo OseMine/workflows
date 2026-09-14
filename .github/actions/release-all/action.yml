@@ -2,7 +2,7 @@ name: Release
 description: >-
   Unified release pipeline. Two modes:
   - full (default): version resolution -> builds -> security gate -> AI notes -> GitHub release with SHA256SUMS + manifest
-  - simple: download artifacts / use local files -> create GitHub release (with optional AI or auto-generated notes)
+  - simple: download artifacts / use local files -> create GitHub release (with optional AI/auto-generated notes)
 author: gha-workflows
 
 inputs:
@@ -48,9 +48,9 @@ inputs:
     required: false
     default: opencode
   model:
-    description: "Primary model ('provider/model' or model id)."
+    description: "Primary model. 'provider/model' or just the model id (provider input is prepended automatically). Special values: 'auto' (pick best available based on API keys), 'auto-free' (pick best free-tier model)."
     required: false
-    default: deepseek-v4-flash-free
+    default: auto-free
   api-key:
     description: "API key for primary provider."
     required: false
@@ -59,9 +59,9 @@ inputs:
     required: false
     default: opencode
   fallback-model:
-    description: "Fallback model."
+    description: "Fallback model. Special values: 'auto', 'auto-free'."
     required: false
-    default: gpt-4o-mini
+    default: auto-free
   fallback-api-key:
     description: "API key for fallback provider."
     required: false
@@ -368,47 +368,113 @@ runs:
         needs_key() { case "$1" in ollama|opencode|puter) return 1 ;; *) return 0 ;; esac; }
         full_model() { case "$2" in */*) echo "$2" ;; *) echo "$1/$2" ;; esac; }
 
+        # Model preference function - returns chosen "provider/model"
+        pick_model() {
+          local model="$1" prov="$2" key="$3" fb_prov="$4" fb_model="$5" fb_key="$6"
+          if [ "$model" != "auto" ] && [ "$model" != "auto-free" ]; then
+            echo "$(full_model "$prov" "$model")"
+            return 0
+          fi
+          local want_free=$([ "$model" = "auto-free" ] && echo 1 || echo 0)
+          local chosen=""
+          # Ordered preference list: provider model needs_key free_tier
+          for entry in \
+            "opencode deepseek-v3 0 1" \
+            "opencode big-pickle 1 1" \
+            "groq llama-3.3-70b-versatile 1 1" \
+            "puter gpt-4o 1 1" \
+            "google gemini-1.5-flash 1 1" \
+            "openai gpt-4o-mini 1 0" \
+            "mistral codestral 1 1" \
+            "anthropic claude-3-5-sonnet 1 0" \
+            "x grok-beta 1 0" \
+            "deepseek deepseek-chat 1 0" \
+            "ollama codellama 0 1"; do
+            read -r p m nk ft <<< "$entry"
+            if [ "$want_free" = "1" ] && [ "$ft" != "1" ]; then
+              continue
+            fi
+            local has_key=0
+            if [ "$nk" = "0" ]; then
+              has_key=1
+            else
+              case "$p" in
+                opencode)   [ -n "$KEY1" -o -n "$OPENCODE_API_KEY" ] && has_key=1 ;;
+                google)     [ -n "$GOOGLE_API_KEY" ] && has_key=1 ;;
+                openai)     [ -n "$OPENAI_API_KEY" ] && has_key=1 ;;
+                mistral)    [ -n "$MISTRAL_API_KEY" ] && has_key=1 ;;
+                anthropic)  [ -n "$ANTHROPIC_API_KEY" ] && has_key=1 ;;
+                x|xai)      [ -n "$XAI_API_KEY" ] && has_key=1 ;;
+                deepseek)   [ -n "$DEEPSEEK_API_KEY" ] && has_key=1 ;;
+                groq)       [ -n "$GROQ_API_KEY" ] && has_key=1 ;;
+                puter)      [ -n "$PUTER_AUTH_TOKEN" ] && has_key=1 ;;
+                ollama)     has_key=1 ;;
+              esac
+            fi
+            if [ "$has_key" = "1" ]; then
+              chosen="$p/$m"
+              break
+            fi
+          done
+          if [ -z "$chosen" ]; then
+            if [ -n "$prov" ] && [ "$prov" != "auto" ]; then
+              chosen="$(full_model "$prov" "$model")"
+            elif [ -n "$fb_prov" ] && [ "$fb_prov" != "auto" ]; then
+              chosen="$(full_model "$fb_prov" "$fb_model")"
+            else
+              chosen="opencode/deepseek-v3"
+            fi
+          fi
+          echo "$chosen"
+        }
+
         if [ -n "${{ inputs.release-notes-command }}" ]; then
           eval "${{ inputs.release-notes-command }}" > "$NOTES" 2>&1 || true
         elif [ "${{ inputs.use-opencode }}" = "true" ] || [ -n "${{ inputs.opencode-api-key }}" ]; then
+          RESOLVED_MODEL1=$(pick_model "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
+          RESOLVED_PROV1="${RESOLVED_MODEL1%%/*}"
+          RESOLVED_MODEL_NAME1="${RESOLVED_MODEL1#*/}"
           wrote=0
-          for i in 1 2; do
-            eval "p=\${PROV$i}"; eval "m=\${MODEL$i}"; eval "k=\${KEY$i}"
-            [ -z "$p" ] && continue
-            m=$(full_model "$p" "$m")
-            if needs_key "$p" && [ -z "$k" ]; then
-              echo "::warning::provider '$p' needs an API key - skipping $m for notes"
-              continue
-            fi
-            apply_key "$p" "$k"
-            echo "--- release notes via: $m (provider: $p) ---"
-            if npx --yes "$OPENCODE_PKG" run --auto --model "$m" \
+          apply_key "$RESOLVED_PROV1" "$KEY1"
+          echo "--- release notes via: $RESOLVED_MODEL1 ---"
+          if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME1" \
+            "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
+            wrote=1
+          else
+            echo "::warning::AI notes failed with $RESOLVED_MODEL1, trying fallback"
+            RESOLVED_MODEL2=$(pick_model "$MODEL2" "$PROV2" "$KEY2" "" "" "")
+            RESOLVED_PROV2="${RESOLVED_MODEL2%%/*}"
+            RESOLVED_MODEL_NAME2="${RESOLVED_MODEL2#*/}"
+            apply_key "$RESOLVED_PROV2" "$KEY2"
+            echo "--- release notes via: $RESOLVED_MODEL2 ---"
+            if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME2" \
               "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
               wrote=1
-              break
             fi
-            echo "::warning::AI notes failed with $m, trying fallback"
-          done
+          fi
           [ "$wrote" -eq 0 ] && rm -f "$NOTES"
         else
+          RESOLVED_MODEL1=$(pick_model "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
+          RESOLVED_PROV1="${RESOLVED_MODEL1%%/*}"
+          RESOLVED_MODEL_NAME1="${RESOLVED_MODEL1#*/}"
           wrote=0
-          for i in 1 2; do
-            eval "p=\${PROV$i}"; eval "m=\${MODEL$i}"; eval "k=\${KEY$i}"
-            [ -z "$p" ] && continue
-            m=$(full_model "$p" "$m")
-            if needs_key "$p" && [ -z "$k" ]; then
-              echo "::warning::provider '$p' needs an API key - skipping $m for notes"
-              continue
-            fi
-            apply_key "$p" "$k"
-            echo "--- release notes via: $m (provider: $p) ---"
-            if npx --yes "$OPENCODE_PKG" run --auto --model "$m" \
+          apply_key "$RESOLVED_PROV1" "$KEY1"
+          echo "--- release notes via: $RESOLVED_MODEL1 ---"
+          if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME1" \
+            "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
+            wrote=1
+          else
+            echo "::warning::AI notes failed with $RESOLVED_MODEL1, trying fallback"
+            RESOLVED_MODEL2=$(pick_model "$MODEL2" "$PROV2" "$KEY2" "" "" "")
+            RESOLVED_PROV2="${RESOLVED_MODEL2%%/*}"
+            RESOLVED_MODEL_NAME2="${RESOLVED_MODEL2#*/}"
+            apply_key "$RESOLVED_PROV2" "$KEY2"
+            echo "--- release notes via: $RESOLVED_MODEL2 ---"
+            if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME2" \
               "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
               wrote=1
-              break
             fi
-            echo "::warning::AI notes failed with $m, trying fallback"
-          done
+          fi
           [ "$wrote" -eq 0 ] && rm -f "$NOTES"
         fi
 

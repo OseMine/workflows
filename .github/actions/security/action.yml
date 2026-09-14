@@ -26,11 +26,9 @@ inputs:
     required: false
     default: opencode
   model:
-    description: >-
-      Primary model. 'provider/model' or just the model id (provider input
-      is prepended automatically).
+    description: "Primary model. 'provider/model' or just the model id (provider input is prepended automatically). Special values: 'auto' (pick best available based on API keys), 'auto-free' (pick best free-tier model)."
     required: false
-    default: deepseek-v4-flash-free
+    default: auto-free
   api-key:
     description: API key for the primary provider (overrides opencode-api-key).
     required: false
@@ -40,9 +38,9 @@ inputs:
     required: false
     default: opencode
   fallback-model:
-    description: Fallback model for the review (same format as `model`).
+    description: "Fallback model for the review (same format as model). Special values: 'auto', 'auto-free'."
     required: false
-    default: gpt-4o-mini
+    default: auto-free
   fallback-api-key:
     description: API key for the fallback provider.
     required: false
@@ -267,49 +265,114 @@ runs:
         }
         needs_key() { case "$1" in ollama|opencode|puter) return 1 ;; *) return 0 ;; esac; }
         full_model() { case "$2" in */*) echo "$2" ;; *) echo "$1/$2" ;; esac; }
-        try_review() {
-          local p="$1" m="$2" k="$3"
-          m=$(full_model "$p" "$m")
-          if needs_key "$p" && [ -z "$k" ]; then
-            echo "::warning::provider '$p' needs an API key but none given - skipping $m"
-            return 1
-          fi
-          apply_key "$p" "$k"
-          echo "--- trying AI review model: $m (provider: $p) ---"
-          timeout 900 bash -c "$OPENCODE_CMD run --model \"$m\" \"$(cat ai-review-prompt.txt)\"" || return 1
-        }
-        if ! try_review "$PROV1" "$MODEL1" "$KEY1"; then
-          try_review "$PROV2" "$MODEL2" "$KEY2" || echo "::warning::all AI review providers failed"
-        else
-          echo "AI review succeeded ($(full_model "$PROV1" "$MODEL1"))"
-        fi
+                # resolve auto/auto-free model to concrete provider/model based on available keys
+                resolve_model() {
+                  local model="$1" prov="$2" key="$3" fb_prov="$4" fb_model="$5" fb_key="$6"
+                  if [ "$model" != "auto" ] && [ "$model" != "auto-free" ]; then
+                    echo "$(full_model "$prov" "$model")"
+                    return 0
+                  fi
+                  local want_free=$([ "$model" = "auto-free" ] && echo 1 || echo 0)
+                  local chosen=""
+                  # Ordered preference list: provider model needs_key free_tier
+                  for entry in \
+                    "opencode deepseek-v3 0 1" \
+                    "opencode big-pickle 1 1" \
+                    "groq llama-3.3-70b-versatile 1 1" \
+                    "puter gpt-4o 1 1" \
+                    "google gemini-1.5-flash 1 1" \
+                    "openai gpt-4o-mini 1 0" \
+                    "mistral codestral 1 1" \
+                    "anthropic claude-3-5-sonnet 1 0" \
+                    "x grok-beta 1 0" \
+                    "deepseek deepseek-chat 1 0" \
+                    "ollama codellama 0 1"; do
+                    read -r p m nk ft <<< "$entry"
+                    if [ "$want_free" = "1" ] && [ "$ft" != "1" ]; then
+                      continue
+                    fi
+                    local has_key=0
+                    if [ "$nk" = "0" ]; then
+                      has_key=1
+                    else
+                      case "$p" in
+                        opencode)   [ -n "$KEY1" -o -n "$OPENCODE_API_KEY" ] && has_key=1 ;;
+                        google)     [ -n "$GOOGLE_API_KEY" ] && has_key=1 ;;
+                        openai)     [ -n "$OPENAI_API_KEY" ] && has_key=1 ;;
+                        mistral)    [ -n "$MISTRAL_API_KEY" ] && has_key=1 ;;
+                        anthropic)  [ -n "$ANTHROPIC_API_KEY" ] && has_key=1 ;;
+                        x|xai)      [ -n "$XAI_API_KEY" ] && has_key=1 ;;
+                        deepseek)   [ -n "$DEEPSEEK_API_KEY" ] && has_key=1 ;;
+                        groq)       [ -n "$GROQ_API_KEY" ] && has_key=1 ;;
+                        puter)      [ -n "$PUTER_AUTH_TOKEN" ] && has_key=1 ;;
+                        ollama)     has_key=1 ;;
+                      esac
+                    fi
+                    if [ "$has_key" = "1" ]; then
+                      chosen="$p/$m"
+                      break
+                    fi
+                  done
+                  if [ -z "$chosen" ]; then
+                    if [ -n "$prov" ] && [ "$prov" != "auto" ]; then
+                      chosen="$(full_model "$prov" "$model")"
+                    elif [ -n "$fb_prov" ] && [ "$fb_prov" != "auto" ]; then
+                      chosen="$(full_model "$fb_prov" "$fb_model")"
+                    else
+                      chosen="opencode/deepseek-v3"
+                    fi
+                  fi
+                  echo "$chosen"
+                }
+                try_review() {
+                            local p="$1" m="$2" k="$3"
+                            m=$(full_model "$p" "$m")
+                            if needs_key "$p" && [ -z "$k" ]; then
+                              echo "::warning::provider '$p' needs an API key but none given - skipping $m"
+                              return 1
+                            fi
+                            apply_key "$p" "$k"
+                            echo "--- trying AI review model: $m (provider: $p) ---"
+                            timeout 900 bash -c "$OPENCODE_CMD run --model \"$m\" \"$(cat ai-review-prompt.txt)\"" || return 1
+                          }
+                          RESOLVED_MODEL1=$(resolve_model "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
+                          RESOLVED_PROV1="${RESOLVED_MODEL1%%/*}"
+                          RESOLVED_MODEL_NAME1="${RESOLVED_MODEL1#*/}"
+                          if ! try_review "$RESOLVED_PROV1" "$RESOLVED_MODEL_NAME1" "$KEY1"; then
+                            RESOLVED_MODEL2=$(resolve_model "$MODEL2" "$PROV2" "$KEY2" "" "" "")
+                            RESOLVED_PROV2="${RESOLVED_MODEL2%%/*}"
+                            RESOLVED_MODEL_NAME2="${RESOLVED_MODEL2#*/}"
+                            try_review "$RESOLVED_PROV2" "$RESOLVED_MODEL_NAME2" "$KEY2" || echo "::warning::all AI review providers failed"
+                          else
+                            echo "AI review succeeded ($(full_model "$RESOLVED_PROV1" "$RESOLVED_MODEL_NAME1"))"
+                          fi
 
-    - name: Parse AI review findings
-      if: always()
-      continue-on-error: true
-      shell: bash
-      working-directory: ${{ github.workspace }}
-      run: |-
-        node -e '
-          const fs = require("fs");
-          try {
-            const raw = fs.readFileSync("security-results/ai-findings.json", "utf8");
-            const obj = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
-            if (!Array.isArray(obj.findings)) throw new Error("findings is not an array");
-            const allowed = ["critical", "high", "medium", "low"];
-            for (const f of obj.findings) {
-              f.severity = allowed.includes(String(f.severity).toLowerCase())
-                ? String(f.severity).toLowerCase()
-                : "medium";
-            }
-            fs.writeFileSync("security-results/ai-findings.json", JSON.stringify(obj, null, 2));
-            console.log("AI review OK:", obj.findings.length, "finding(s)");
-          } catch (e) {
-            fs.rmSync("security-results/ai-findings.json", { force: true });
-            fs.writeFileSync("security-results/ai-review.error", String(e));
-            console.log("::warning::AI review output invalid or missing - continuing without it");
-          }
-        '
+                      - name: Parse AI review findings
+                        if: always()
+                        continue-on-error: true
+                        shell: bash
+                        working-directory: ${{ github.workspace }}
+                        run: |-
+                node -e '
+                  const fs = require("fs");
+                  try {
+                    const raw = fs.readFileSync("security-results/ai-findings.json", "utf8");
+                    const obj = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
+                    if (!Array.isArray(obj.findings)) throw new Error("findings is not an array");
+                    const allowed = ["critical", "high", "medium", "low"];
+                    for (const f of obj.findings) {
+                      f.severity = allowed.includes(String(f.severity).toLowerCase())
+                        ? String(f.severity).toLowerCase()
+                        : "medium";
+                    }
+                    fs.writeFileSync("security-results/ai-findings.json", JSON.stringify(obj, null, 2));
+                    console.log("AI review OK:", obj.findings.length, "finding(s)");
+                  } catch (e) {
+                    fs.rmSync("security-results/ai-findings.json", { force: true });
+                    fs.writeFileSync("security-results/ai-review.error", String(e));
+                    console.log("::warning::AI review output invalid or missing - continuing without it");
+                  }
+                '
 
     - name: Mark AI review as skipped
       if: inputs.opencode-api-key == '' && inputs.api-key == ''

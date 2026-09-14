@@ -30,11 +30,9 @@ inputs:
     required: false
     default: opencode
   model:
-    description: >-
-      Primary model. 'provider/model' or just the model id (provider input
-      is prepended automatically).
+    description: "Primary model. 'provider/model' or just the model id (provider input is prepended automatically). Special values: 'auto' (pick best available based on API keys), 'auto-free' (pick best free-tier model)."
     required: false
-    default: deepseek-v4-flash-free
+    default: auto-free
   api-key:
     description: API key for the primary provider (empty = anonymous/local model if possible).
     required: false
@@ -43,9 +41,9 @@ inputs:
     required: false
     default: opencode
   fallback-model:
-    description: Fallback model (same format as `model`).
+    description: "Fallback model (same format as model). Special values: 'auto', 'auto-free'."
     required: false
-    default: gpt-4o-mini
+    default: auto-free
   fallback-api-key:
     description: API key for the fallback provider (empty = omitted).
     required: false
@@ -139,6 +137,65 @@ runs:
             "$@"
           fi
         }
+        # resolve auto/auto-free model to concrete provider/model based on available keys
+        resolve_model() {
+          local model="$1" prov="$2" key="$3" fb_prov="$4" fb_model="$5" fb_key="$6"
+          if [ "$model" != "auto" ] && [ "$model" != "auto-free" ]; then
+            echo "$(full_model "$prov" "$model")"
+            return 0
+          fi
+          local want_free=$([ "$model" = "auto-free" ] && echo 1 || echo 0)
+          local chosen=""
+          # Ordered preference list: provider model needs_key free_tier
+          for entry in \
+            "opencode deepseek-v3 0 1" \
+            "opencode big-pickle 1 1" \
+            "groq llama-3.3-70b-versatile 1 1" \
+            "puter gpt-4o 1 1" \
+            "google gemini-1.5-flash 1 1" \
+            "openai gpt-4o-mini 1 0" \
+            "mistral codestral 1 1" \
+            "anthropic claude-3-5-sonnet 1 0" \
+            "x grok-beta 1 0" \
+            "deepseek deepseek-chat 1 0" \
+            "ollama codellama 0 1"; do
+            read -r p m nk ft <<< "$entry"
+            if [ "$want_free" = "1" ] && [ "$ft" != "1" ]; then
+              continue
+            fi
+            local has_key=0
+            if [ "$nk" = "0" ]; then
+              has_key=1
+            else
+              case "$p" in
+                opencode)   [ -n "$KEY1" -o -n "$OPENCODE_API_KEY" ] && has_key=1 ;;
+                google)     [ -n "$GOOGLE_API_KEY" ] && has_key=1 ;;
+                openai)     [ -n "$OPENAI_API_KEY" ] && has_key=1 ;;
+                mistral)    [ -n "$MISTRAL_API_KEY" ] && has_key=1 ;;
+                anthropic)  [ -n "$ANTHROPIC_API_KEY" ] && has_key=1 ;;
+                x|xai)      [ -n "$XAI_API_KEY" ] && has_key=1 ;;
+                deepseek)   [ -n "$DEEPSEEK_API_KEY" ] && has_key=1 ;;
+                groq)       [ -n "$GROQ_API_KEY" ] && has_key=1 ;;
+                puter)      [ -n "$PUTER_AUTH_TOKEN" ] && has_key=1 ;;
+                ollama)     has_key=1 ;;
+              esac
+            fi
+            if [ "$has_key" = "1" ]; then
+              chosen="$p/$m"
+              break
+            fi
+          done
+          if [ -z "$chosen" ]; then
+            if [ -n "$prov" ] && [ "$prov" != "auto" ]; then
+              chosen="$(full_model "$prov" "$model")"
+            elif [ -n "$fb_prov" ] && [ "$fb_prov" != "auto" ]; then
+              chosen="$(full_model "$fb_prov" "$fb_model")"
+            else
+              chosen="opencode/deepseek-v3"
+            fi
+          fi
+          echo "$chosen"
+        }
         try_model() {
           local p="$1" m="$2" k="$3"
           m=$(full_model "$p" "$m")
@@ -157,9 +214,17 @@ runs:
           echo "::warning::opencode failed with model $m (exit $code)"
           return 1
         }
+        # resolve primary model
+        RESOLVED_MODEL1=$(resolve_model "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
+        RESOLVED_PROV1="${RESOLVED_MODEL1%%/*}"
+        RESOLVED_MODEL_NAME1="${RESOLVED_MODEL1#*/}"
         run_npx npx --yes "$PACKAGE" --version >/dev/null 2>&1 || npm install -g --silent "$PACKAGE" >/dev/null 2>&1
-        if ! try_model "$PROV1" "$MODEL1" "$KEY1"; then
-          try_model "$PROV2" "$MODEL2" "$KEY2"
+        if ! try_model "$RESOLVED_PROV1" "$RESOLVED_MODEL_NAME1" "$KEY1"; then
+          # resolve fallback model
+          RESOLVED_MODEL2=$(resolve_model "$MODEL2" "$PROV2" "$KEY2" "" "" "")
+          RESOLVED_PROV2="${RESOLVED_MODEL2%%/*}"
+          RESOLVED_MODEL_NAME2="${RESOLVED_MODEL2#*/}"
+          try_model "$RESOLVED_PROV2" "$RESOLVED_MODEL_NAME2" "$KEY2"
           echo "::error::all providers failed"
           exit 1
         fi
