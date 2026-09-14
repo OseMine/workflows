@@ -61,7 +61,7 @@ jobs:
           draft: ${{ github.event.inputs.draft || 'false' }}
           prerelease: ${{ github.event.inputs.prerelease || 'false' }}
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
-          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}   # optional, enables AI release notes
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
           fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
@@ -83,7 +83,7 @@ jobs:
         with:
           min-rating: "7"
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
-          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
           fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
@@ -100,7 +100,7 @@ defaults them from repo variables** so you configure your AI once per repo:
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `AI_PROVIDER` | Primary provider | `opencode` |
-| `AI_MODEL` | Primary model | `deepseek-v4-flash-free` |
+| `AI_MODEL` | Primary model | `auto-free` |
 | `AI_FALLBACK_PROVIDER` | Fallback provider | `opencode` |
 | `AI_FALLBACK_MODEL` | Fallback model | `gpt-4o-mini` |
 | `CI_LANGUAGE` | CI language (templates/ci.yml) | `auto` |
@@ -110,7 +110,7 @@ Inputs (set in the workflow or left to the vars above):
 | Input | Description | Default |
 |-------|-------------|---------|
 | `provider` | Primary AI provider | `${{ vars.AI_PROVIDER || 'opencode' }}` |
-| `model` | Primary model | `${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}` |
+| `model` | Primary model | `${{ vars.AI_MODEL || 'auto-free' }}` |
 | `api-key` | API key for primary provider | `${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}` |
 | `fallback-provider` | Fallback provider | `${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}` |
 | `fallback-model` | Fallback model | `${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}` |
@@ -156,7 +156,7 @@ jobs:
         with:
           prompt: "Analyze this Rust project for dead code and suggest removals"
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
-          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
           fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}

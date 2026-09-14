@@ -38,7 +38,7 @@ jobs:
         uses: OseMine/workflows/.github/actions/opencode@main
         with:
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
-          model: ${{ vars.AI_MODEL || 'deepseek-v4-flash-free' }}
+          model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
           fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
