@@ -36,6 +36,11 @@ jobs:
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
           fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---
+          # provider: custom
+          # model: my-model          # model id your API accepts
+          # custom-api-base: https://api.example.com/v1
+          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}
           timeout-minutes: "50"
 
       - name: Commit changes (if any)

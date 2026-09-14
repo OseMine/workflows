@@ -44,7 +44,7 @@ inputs:
     required: false
     default: ""
   provider:
-    description: "Primary AI provider for notes + security (opencode, google, openai, mistral, anthropic, x, deepseek, groq, puter, ollama)."
+    description: "Primary AI provider for notes + security (custom, opencode, google, openai, mistral, anthropic, x, deepseek, groq, puter, together, cerebras, openrouter, huggingface, lmstudio, ollama)."
     required: false
     default: opencode
   model:
@@ -64,6 +64,15 @@ inputs:
     default: auto-free
   fallback-api-key:
     description: "API key for fallback provider."
+    required: false
+  custom-api-base:
+    description: "Base URL for the custom provider (OpenAI-compatible, e.g. https://api.example.com/v1). Required when provider=custom."
+    required: false
+  custom-api-key:
+    description: "API key for the custom provider (defaults to api-key)."
+    required: false
+  custom-model:
+    description: "Model id to use with the custom provider (overrides `model`)."
     required: false
   opencode-version:
     description: "opencode-ai npm version for AI release notes."
@@ -223,6 +232,9 @@ runs:
         fallback-provider: ${{ inputs.fallback-provider }}
         fallback-model: ${{ inputs.fallback-model }}
         fallback-api-key: ${{ inputs.fallback-api-key }}
+        custom-api-base: ${{ inputs.custom-api-base }}
+        custom-api-key: ${{ inputs.custom-api-key }}
+        custom-model: ${{ inputs.custom-model }}
         virustotal-api-key: ""
 
     - name: Rust / Cargo release build
@@ -338,8 +350,13 @@ runs:
         PROV2: ${{ inputs.fallback-provider }}
         MODEL2: ${{ inputs.fallback-model }}
         KEY2: ${{ inputs.fallback-api-key }}
+        CUSTOM_BASE: ${{ inputs.custom-api-base }}
+        CUSTOM_KEY: ${{ inputs.custom-api-key }}
+        CUSTOM_MODEL: ${{ inputs.custom-model }}
       run: |-
         set -uo pipefail
+        source "${{ github.action_path }}/../lib-ai/ai.bash"
+
         mkdir -p reports
         NOTES="reports/release-notes-${RELEASE_TAG}.md"
 
@@ -350,132 +367,35 @@ runs:
           exit 0
         fi
 
-        apply_key() {
-          case "$1" in
-            opencode)   export OPENCODE_API_KEY="$2" ;;
-            google)     export GOOGLE_API_KEY="$2" ;;
-            openai)     export OPENAI_API_KEY="$2" ;;
-            mistral)    export MISTRAL_API_KEY="$2" ;;
-            anthropic)  export ANTHROPIC_API_KEY="$2" ;;
-            x|xai)      export XAI_API_KEY="$2" ;;
-            deepseek)   export DEEPSEEK_API_KEY="$2" ;;
-            groq)       export GROQ_API_KEY="$2" ;;
-            puter)      export PUTER_AUTH_TOKEN="$2" ;;
-            ollama)     : ;;
-            *) echo "::warning::unknown provider '$1'";;
-          esac
-        }
-        needs_key() { case "$1" in ollama|opencode|puter) return 1 ;; *) return 0 ;; esac; }
-        full_model() { case "$2" in */*) echo "$2" ;; *) echo "$1/$2" ;; esac; }
-
-        # Model preference function - returns chosen "provider/model"
-        pick_model() {
-          local model="$1" prov="$2" key="$3" fb_prov="$4" fb_model="$5" fb_key="$6"
-          if [ "$model" != "auto" ] && [ "$model" != "auto-free" ]; then
-            echo "$(full_model "$prov" "$model")"
-            return 0
-          fi
-          local want_free=$([ "$model" = "auto-free" ] && echo 1 || echo 0)
-          local chosen=""
-          # Ordered preference list: provider model needs_key free_tier
-          for entry in \
-            "opencode deepseek-v3 0 1" \
-            "opencode big-pickle 1 1" \
-            "groq llama-3.3-70b-versatile 1 1" \
-            "puter gpt-4o 1 1" \
-            "google gemini-1.5-flash 1 1" \
-            "openai gpt-4o-mini 1 0" \
-            "mistral codestral 1 1" \
-            "anthropic claude-3-5-sonnet 1 0" \
-            "x grok-beta 1 0" \
-            "deepseek deepseek-chat 1 0" \
-            "ollama codellama 0 1"; do
-            read -r p m nk ft <<< "$entry"
-            if [ "$want_free" = "1" ] && [ "$ft" != "1" ]; then
-              continue
-            fi
-            local has_key=0
-            if [ "$nk" = "0" ]; then
-              has_key=1
-            else
-              case "$p" in
-                opencode)   [ -n "$KEY1" -o -n "$OPENCODE_API_KEY" ] && has_key=1 ;;
-                google)     [ -n "$GOOGLE_API_KEY" ] && has_key=1 ;;
-                openai)     [ -n "$OPENAI_API_KEY" ] && has_key=1 ;;
-                mistral)    [ -n "$MISTRAL_API_KEY" ] && has_key=1 ;;
-                anthropic)  [ -n "$ANTHROPIC_API_KEY" ] && has_key=1 ;;
-                x|xai)      [ -n "$XAI_API_KEY" ] && has_key=1 ;;
-                deepseek)   [ -n "$DEEPSEEK_API_KEY" ] && has_key=1 ;;
-                groq)       [ -n "$GROQ_API_KEY" ] && has_key=1 ;;
-                puter)      [ -n "$PUTER_AUTH_TOKEN" ] && has_key=1 ;;
-                ollama)     has_key=1 ;;
-              esac
-            fi
-            if [ "$has_key" = "1" ]; then
-              chosen="$p/$m"
-              break
-            fi
-          done
-          if [ -z "$chosen" ]; then
-            if [ -n "$prov" ] && [ "$prov" != "auto" ]; then
-              chosen="$(full_model "$prov" "$model")"
-            elif [ -n "$fb_prov" ] && [ "$fb_prov" != "auto" ]; then
-              chosen="$(full_model "$fb_prov" "$fb_model")"
-            else
-              chosen="opencode/deepseek-v3"
-            fi
-          fi
-          echo "$chosen"
+        run_notes() {
+          local m="$1"
+          echo "--- release notes via: $m ---"
+          npx --yes "$OPENCODE_PKG" run --auto --model "$m" \
+            "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." \
+            > "$NOTES" 2>&1 || return 1
         }
 
+        wrote=0
         if [ -n "${{ inputs.release-notes-command }}" ]; then
           eval "${{ inputs.release-notes-command }}" > "$NOTES" 2>&1 || true
-        elif [ "${{ inputs.use-opencode }}" = "true" ] || [ -n "${{ inputs.opencode-api-key }}" ]; then
-          RESOLVED_MODEL1=$(pick_model "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
-          RESOLVED_PROV1="${RESOLVED_MODEL1%%/*}"
-          RESOLVED_MODEL_NAME1="${RESOLVED_MODEL1#*/}"
-          wrote=0
-          apply_key "$RESOLVED_PROV1" "$KEY1"
-          echo "--- release notes via: $RESOLVED_MODEL1 ---"
-          if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME1" \
-            "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
-            wrote=1
-          else
-            echo "::warning::AI notes failed with $RESOLVED_MODEL1, trying fallback"
-            RESOLVED_MODEL2=$(pick_model "$MODEL2" "$PROV2" "$KEY2" "" "" "")
-            RESOLVED_PROV2="${RESOLVED_MODEL2%%/*}"
-            RESOLVED_MODEL_NAME2="${RESOLVED_MODEL2#*/}"
-            apply_key "$RESOLVED_PROV2" "$KEY2"
-            echo "--- release notes via: $RESOLVED_MODEL2 ---"
-            if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME2" \
-              "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
-              wrote=1
-            fi
-          fi
-          [ "$wrote" -eq 0 ] && rm -f "$NOTES"
+          wrote=1
         else
-          RESOLVED_MODEL1=$(pick_model "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
-          RESOLVED_PROV1="${RESOLVED_MODEL1%%/*}"
-          RESOLVED_MODEL_NAME1="${RESOLVED_MODEL1#*/}"
-          wrote=0
-          apply_key "$RESOLVED_PROV1" "$KEY1"
-          echo "--- release notes via: $RESOLVED_MODEL1 ---"
-          if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME1" \
-            "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
+          FREE1=0; [ "$MODEL1" = "auto-free" ] && FREE1=1
+          RESOLVED_MODEL1=$(ai_resolve "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
+          FULL1=$(ai_prepare "$RESOLVED_MODEL1" "$KEY1" "$FREE1") || FULL1=""
+          if [ -n "$FULL1" ] && run_notes "$FULL1"; then
             wrote=1
           else
-            echo "::warning::AI notes failed with $RESOLVED_MODEL1, trying fallback"
-            RESOLVED_MODEL2=$(pick_model "$MODEL2" "$PROV2" "$KEY2" "" "" "")
-            RESOLVED_PROV2="${RESOLVED_MODEL2%%/*}"
-            RESOLVED_MODEL_NAME2="${RESOLVED_MODEL2#*/}"
-            apply_key "$RESOLVED_PROV2" "$KEY2"
-            echo "--- release notes via: $RESOLVED_MODEL2 ---"
-            if npx --yes "$OPENCODE_PKG" run --auto --model "$RESOLVED_MODEL_NAME2" \
-              "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." > "$NOTES" 2>&1; then
+            echo "::warning::AI notes failed with $FULL1, trying fallback"
+            FREE2=0; [ "$MODEL2" = "auto-free" ] && FREE2=1
+            RESOLVED_MODEL2=$(ai_resolve "$MODEL2" "$PROV2" "$KEY2" "" "" "")
+            FULL2=$(ai_prepare "$RESOLVED_MODEL2" "$KEY2" "$FREE2") || FULL2=""
+            if [ -n "$FULL2" ] && run_notes "$FULL2"; then
               wrote=1
+            else
+              rm -f "$NOTES"
             fi
           fi
-          [ "$wrote" -eq 0 ] && rm -f "$NOTES"
         fi
 
         if [ ! -s "$NOTES" ]; then

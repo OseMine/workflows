@@ -116,12 +116,34 @@ Inputs (set in the workflow or left to the vars above):
 | `fallback-model` | Fallback model | `${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}` |
 | `fallback-api-key` | API key for fallback | `${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}` |
 
-**Supported providers:** `opencode`, `google`, `openai`, `mistral`, `anthropic`,
-`x` (xAI/Grok), `deepseek`, `groq`, `puter`, `ollama` (local, no key).
+**Supported providers:** `custom`, `opencode`, `google`, `openai`, `mistral`,
+`anthropic`, `x` (xAI/Grok), `deepseek`, `groq`, `puter`, `together`,
+`cerebras`, `openrouter`, `huggingface`, `lmstudio` (local, no key), `ollama`
+(local, no key).
+
+Note: `auto`/`auto-free` only work with providers in the models.dev catalog
+(`opencode` … `huggingface` above). `custom`, `puter`, `lmstudio` and `ollama`
+require a concrete `provider/model` (e.g. `model: llama3` with `provider: ollama`).
 
 Each provider maps to its own API key environment variable (`GOOGLE_API_KEY`,
 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) — the actions handle the mapping
 so you only set one `api-key` per provider.
+
+### `custom` provider (any OpenAI-compatible API)
+
+Use `provider: custom` to point at your own LLM API endpoint (self-hosted
+gateway, vLLM, LM Studio, Azure OpenAI, an internal proxy, etc.). Supply the
+connection details as inputs (or the corresponding `CUSTOM_*` vars):
+
+| Input | Purpose |
+|-------|---------|
+| `custom-api-base` | Base URL, OpenAI-compatible, ending in `/v1` (required) |
+| `custom-api-key` | API key `Authorization: Bearer <key>` (optional) |
+| `custom-model` | Model id sent in the request (overrides `model`) |
+
+So `provider: custom`, `model: my-model`, `custom-api-base: https://api.example.com/v1`,
+`custom-api-key: ${{ secrets.CUSTOM_API_KEY }}` calls
+`https://api.example.com/v1/chat/completions` with model `my-model`.
 
 ### `auto` / `auto-free` model selection
 
@@ -130,28 +152,28 @@ actions resolve at runtime based on which API keys are configured:
 
 | Value | Behavior |
 |-------|----------|
-| `auto` | Pick the best model whose provider has an API key available |
-| `auto-free` | Same, but only consider providers with a generous free tier |
+| `auto` | Pick the best available provider (any tier), then its best free-or-flagship model discovered live from the models.dev catalog |
+| `auto-free` | Same, but only consider providers with a generous free tier, and only discover zero-cost models |
 
-Resolution order (first match wins):
+**How it works** — there is no hardcoded model table. At run time the action:
 
-| # | Model | Free tier | Key needed |
-|---|-------|-----------|------------|
-| 1 | `opencode/deepseek-v3` | yes | no (anonymous) |
-| 2 | `opencode/big-pickle` | yes | no |
-| 3 | `groq/llama-3.3-70b-versatile` | yes | `GROQ_API_KEY` |
-| 4 | `puter/gpt-4o` | yes | `PUTER_AUTH_TOKEN` |
-| 5 | `google/gemini-1.5-flash` | yes | `GOOGLE_API_KEY` |
-| 6 | `mistral/codestral` | yes | `MISTRAL_API_KEY` |
-| 7 | `openai/gpt-4o-mini` | no | `OPENAI_API_KEY` |
-| 8 | `anthropic/claude-3-5-sonnet` | no | `ANTHROPIC_API_KEY` |
-| 9 | `x/grok-beta` | no | `XAI_API_KEY` |
-| 10 | `deepseek/deepseek-chat` | no | `DEEPSEEK_API_KEY` |
-| 11 | `ollama/codellama` | yes | no (local) |
+1. Scans `AI_PROVIDERS` in preference order and picks the first provider whose
+   API key is available (a provider you set explicitly with a key wins):
+   `opencode` (keyless) → `groq` → `google` → `openrouter` → `mistral` →
+   `cerebras` → `xai` → `deepseek` → `openai` → `anthropic` → `togetherai` →
+   `huggingface`. `auto-free` skips paid-tiers (xai, deepseek, openai,
+   anthropic, togetherai, huggingface).
+2. Downloads `https://models.dev/api.json` once (cached in `RUNNER_TEMP`),
+   filters the provider's models (agent-capable = support tool calls;
+   `auto-free` keeps only zero-cost ones), ranks them with the same priority
+   opencode itself uses (gpt-5 family → claude-sonnet-4 → big-pickle →
+   gemini-3-pro, then newest release), and uses that `provider/model` for the
+   run.
 
-`auto-free` skips any provider without a free tier (rows 7–10). If nothing is
-available, the action falls back to the configured `fallback-provider`/
-`fallback-model`, then to `opencode/deepseek-v3`.
+If nothing is available, the action falls back to the configured
+`fallback-provider`/`fallback-model`, then to anonymous `opencode`. A provider
+whose only models are paid or non-agent (e.g. groq speech) is skipped for
+`auto-free` rather than run with a wrong model.
 
 **Concrete models** are accepted too, in `provider/model` or bare `model-id`
 (the `provider` input is prepended), e.g. `model: mixtral-8x7b` with
@@ -164,7 +186,8 @@ Recommended setup — create one repo secret per provider you use:
 | `AI_API_KEY` | Your preferred provider's key | opencode, security, release |
 | `OPENCODE_API_KEY` | OpenCode (their API gateway) | fallback for all AI actions |
 | `VIRUSTOTAL_API_KEY` | VirusTotal | security |
-| `PUTER_AUTH_TOKEN` | Puter (optional, free token-gated models) | security, release |
+| `PUTER_AUTH_TOKEN` | Puter (needs a concrete `model`, not auto) | security, release |
+| `CUSTOM_API_KEY` | Your own OpenAI-compatible API | all AI actions (provider: custom) |
 
 `AI_API_KEY` (a single secret) is enough for every AI action — set it once and
 the templates wire it everywhere, falling back to `OPENCODE_API_KEY` if you
@@ -173,7 +196,7 @@ prefer OpenCode's gateway instead.
 The fallback ensures reliability — if the primary provider is down or has no
 credits, the run continues with the fallback. The default `model: auto-free`
 considers only free-tier providers, so AI features work even without any API
-key (anonymous opencode, ollama). Set `AI_MODEL: auto` or a concrete model to
+key (anonymous opencode). Set `AI_MODEL: auto` or a concrete model to
 opt into paid providers.
 
 ### OpenCode automation

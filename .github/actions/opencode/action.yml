@@ -25,8 +25,9 @@ inputs:
     default: build
   provider:
     description: >-
-      Primary AI provider: opencode, google, openai, mistral, anthropic, x,
-      deepseek, groq, puter, ollama (local, no key needed).
+      Primary AI provider: custom, opencode, google, openai, mistral, anthropic,
+      x, deepseek, groq, puter, together, cerebras, openrouter, huggingface,
+      lmstudio (local, no key needed), ollama (local, no key needed).
     required: false
     default: opencode
   model:
@@ -46,6 +47,15 @@ inputs:
     default: auto-free
   fallback-api-key:
     description: API key for the fallback provider (empty = omitted).
+    required: false
+  custom-api-base:
+    description: "Base URL for the custom provider (OpenAI-compatible, e.g. https://api.example.com/v1). Required when provider=custom."
+    required: false
+  custom-api-key:
+    description: "API key for the custom provider (defaults to api-key)."
+    required: false
+  custom-model:
+    description: "Model id to use with the custom provider (overrides `model`)."
     required: false
   opencode-version:
     description: Version of the opencode-ai npm package to use.
@@ -91,12 +101,16 @@ runs:
         PROV2: ${{ inputs.fallback-provider }}
         MODEL2: ${{ inputs.fallback-model }}
         KEY2: ${{ inputs.fallback-api-key }}
+        CUSTOM_BASE: ${{ inputs.custom-api-base }}
+        CUSTOM_KEY: ${{ inputs.custom-api-key }}
+        CUSTOM_MODEL: ${{ inputs.custom-model }}
         AGENT: ${{ inputs.agent }}
         PROMPT: ${{ inputs.prompt }}
         PROMPT_FILE: ${{ inputs.prompt-file }}
         TIMEOUT_MIN: ${{ inputs.timeout-minutes }}
       run: |-
-        set -u
+        set -uo pipefail
+        source "${{ github.action_path }}/../lib-ai/ai.bash"
         # prefer prompt-file (may contain runtime data) over inline prompt
         if [ -n "$PROMPT_FILE" ] && [ -f "$PROMPT_FILE" ]; then
           PROMPT=$(cat "$PROMPT_FILE")
@@ -105,128 +119,35 @@ runs:
           echo "::error::no prompt given (set 'prompt' or 'prompt-file')"
           exit 1
         fi
-        # ---- map provider -> the API key env var opencode expects ----
-        apply_key() {
-          local p="$1" k="$2"
-          case "$p" in
-            opencode)   export OPENCODE_API_KEY="$k" ;;
-            google)     export GOOGLE_API_KEY="$k" ;;
-            openai)     export OPENAI_API_KEY="$k" ;;
-            mistral)    export MISTRAL_API_KEY="$k" ;;
-            anthropic)  export ANTHROPIC_API_KEY="$k" ;;
-            x|xai)      export XAI_API_KEY="$k" ;;
-            deepseek)   export DEEPSEEK_API_KEY="$k" ;;
-            groq)       export GROQ_API_KEY="$k" ;;
-            puter)      export PUTER_AUTH_TOKEN="$k" ;;
-            ollama)     : ;; # local, no key
-            *) echo "::warning::unknown provider '$p'" ;;
-          esac
-        }
-        needs_key() {
-          case "$1" in ollama|opencode|puter) return 1 ;; *) return 0 ;; esac
-        }
-        # assemble full model id: "prov/model" or "model" if it already contains "/"
-        full_model() {
-          case "$2" in */*) echo "$2" ;; *) echo "$1/$2" ;; esac
-        }
-        run_npx() {
-          # composite steps cannot set timeout-minutes; enforce via GNU timeout
-          if [ -n "$TIMEOUT_MIN" ] && command -v timeout >/dev/null 2>&1; then
-            timeout "${TIMEOUT_MIN}m" "$@"
-          else
-            "$@"
-          fi
-        }
-        # resolve auto/auto-free model to concrete provider/model based on available keys
-        resolve_model() {
-          local model="$1" prov="$2" key="$3" fb_prov="$4" fb_model="$5" fb_key="$6"
-          if [ "$model" != "auto" ] && [ "$model" != "auto-free" ]; then
-            echo "$(full_model "$prov" "$model")"
-            return 0
-          fi
-          local want_free=$([ "$model" = "auto-free" ] && echo 1 || echo 0)
-          local chosen=""
-          # Ordered preference list: provider model needs_key free_tier
-          for entry in \
-            "opencode deepseek-v3 0 1" \
-            "opencode big-pickle 1 1" \
-            "groq llama-3.3-70b-versatile 1 1" \
-            "puter gpt-4o 1 1" \
-            "google gemini-1.5-flash 1 1" \
-            "openai gpt-4o-mini 1 0" \
-            "mistral codestral 1 1" \
-            "anthropic claude-3-5-sonnet 1 0" \
-            "x grok-beta 1 0" \
-            "deepseek deepseek-chat 1 0" \
-            "ollama codellama 0 1"; do
-            read -r p m nk ft <<< "$entry"
-            if [ "$want_free" = "1" ] && [ "$ft" != "1" ]; then
-              continue
-            fi
-            local has_key=0
-            if [ "$nk" = "0" ]; then
-              has_key=1
-            else
-              case "$p" in
-                opencode)   [ -n "$KEY1" -o -n "$OPENCODE_API_KEY" ] && has_key=1 ;;
-                google)     [ -n "$GOOGLE_API_KEY" ] && has_key=1 ;;
-                openai)     [ -n "$OPENAI_API_KEY" ] && has_key=1 ;;
-                mistral)    [ -n "$MISTRAL_API_KEY" ] && has_key=1 ;;
-                anthropic)  [ -n "$ANTHROPIC_API_KEY" ] && has_key=1 ;;
-                x|xai)      [ -n "$XAI_API_KEY" ] && has_key=1 ;;
-                deepseek)   [ -n "$DEEPSEEK_API_KEY" ] && has_key=1 ;;
-                groq)       [ -n "$GROQ_API_KEY" ] && has_key=1 ;;
-                puter)      [ -n "$PUTER_AUTH_TOKEN" ] && has_key=1 ;;
-                ollama)     has_key=1 ;;
-              esac
-            fi
-            if [ "$has_key" = "1" ]; then
-              chosen="$p/$m"
-              break
-            fi
-          done
-          if [ -z "$chosen" ]; then
-            if [ -n "$prov" ] && [ "$prov" != "auto" ]; then
-              chosen="$(full_model "$prov" "$model")"
-            elif [ -n "$fb_prov" ] && [ "$fb_prov" != "auto" ]; then
-              chosen="$(full_model "$fb_prov" "$fb_model")"
-            else
-              chosen="opencode/deepseek-v3"
-            fi
-          fi
-          echo "$chosen"
-        }
-        try_model() {
-          local p="$1" m="$2" k="$3"
-          m=$(full_model "$p" "$m")
-          if needs_key "$p" && [ -z "$k" ]; then
-            echo "::warning::provider '$p' needs an API key but none given - skipping $m"
-            return 1
-          fi
-          apply_key "$p" "$k"
+        ai_try() {
+          local m="$1"
           echo "--- trying model: $m ---"
-          if run_npx npx --yes "$PACKAGE" run --model "$m" --agent "$AGENT" --auto "$PROMPT" 2>&1; then
-            echo "OpenCode succeeded with model: $m (provider: $p)" >> "$GITHUB_STEP_SUMMARY"
-            echo "SUCCEEDED_MODEL=$m" >> "$GITHUB_ENV"
-            return 0
+          local cmd=(npx --yes "$PACKAGE" run --model "$m")
+          [ -n "$AGENT" ] && cmd+=(--agent "$AGENT")
+          cmd+=(--auto "$PROMPT")
+          if [ -n "$TIMEOUT_MIN" ] && command -v timeout >/dev/null 2>&1; then
+            timeout "${TIMEOUT_MIN}m" "${cmd[@]}"
+          else
+            "${cmd[@]}"
           fi
-          local code=$?
-          echo "::warning::opencode failed with model $m (exit $code)"
-          return 1
         }
-        # resolve primary model
-        RESOLVED_MODEL1=$(resolve_model "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
-        RESOLVED_PROV1="${RESOLVED_MODEL1%%/*}"
-        RESOLVED_MODEL_NAME1="${RESOLVED_MODEL1#*/}"
-        run_npx npx --yes "$PACKAGE" --version >/dev/null 2>&1 || npm install -g --silent "$PACKAGE" >/dev/null 2>&1
-        if ! try_model "$RESOLVED_PROV1" "$RESOLVED_MODEL_NAME1" "$KEY1"; then
-          # resolve fallback model
-          RESOLVED_MODEL2=$(resolve_model "$MODEL2" "$PROV2" "$KEY2" "" "" "")
-          RESOLVED_PROV2="${RESOLVED_MODEL2%%/*}"
-          RESOLVED_MODEL_NAME2="${RESOLVED_MODEL2#*/}"
-          try_model "$RESOLVED_PROV2" "$RESOLVED_MODEL_NAME2" "$KEY2"
-          echo "::error::all providers failed"
-          exit 1
+        # resolve primary model (provider alias or provider/model)
+        FREE1=0; [ "$MODEL1" = "auto-free" ] && FREE1=1
+        RESOLVED_MODEL1=$(ai_resolve "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
+        FULL1=$(ai_prepare "$RESOLVED_MODEL1" "$KEY1" "$FREE1") || FULL1=""
+        if [ -n "$FULL1" ] && ai_try "$FULL1"; then
+          echo "AI task succeeded with model: $FULL1" >> "$GITHUB_STEP_SUMMARY"
+        else
+          # resolve + try fallback model
+          FREE2=0; [ "$MODEL2" = "auto-free" ] && FREE2=1
+          RESOLVED_MODEL2=$(ai_resolve "$MODEL2" "$PROV2" "$KEY2" "" "" "")
+          FULL2=$(ai_prepare "$RESOLVED_MODEL2" "$KEY2" "$FREE2") || FULL2=""
+          if [ -n "$FULL2" ] && ai_try "$FULL2"; then
+            echo "AI task succeeded with model: $FULL2 (fallback)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::all AI providers failed for this task"
+            exit 1
+          fi
         fi
 
     - name: Summarize result
