@@ -64,7 +64,7 @@ jobs:
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}   # optional, enables AI release notes
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
-          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
 ```
 
@@ -86,7 +86,7 @@ jobs:
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
-          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }}   # optional
 ```
@@ -102,7 +102,7 @@ defaults them from repo variables** so you configure your AI once per repo:
 | `AI_PROVIDER` | Primary provider | `opencode` |
 | `AI_MODEL` | Primary model | `auto-free` |
 | `AI_FALLBACK_PROVIDER` | Fallback provider | `opencode` |
-| `AI_FALLBACK_MODEL` | Fallback model | `gpt-4o-mini` |
+| `AI_FALLBACK_MODEL` | Fallback model | `auto-free` |
 | `CI_LANGUAGE` | CI language (templates/ci.yml) | `auto` |
 
 Inputs (set in the workflow or left to the vars above):
@@ -113,7 +113,7 @@ Inputs (set in the workflow or left to the vars above):
 | `model` | Primary model | `${{ vars.AI_MODEL || 'auto-free' }}` |
 | `api-key` | API key for primary provider | `${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}` |
 | `fallback-provider` | Fallback provider | `${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}` |
-| `fallback-model` | Fallback model | `${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}` |
+| `fallback-model` | Fallback model | `${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}` |
 | `fallback-api-key` | API key for fallback | `${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}` |
 
 **Supported providers:** `opencode`, `google`, `openai`, `mistral`, `anthropic`,
@@ -122,6 +122,40 @@ Inputs (set in the workflow or left to the vars above):
 Each provider maps to its own API key environment variable (`GOOGLE_API_KEY`,
 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) — the actions handle the mapping
 so you only set one `api-key` per provider.
+
+### `auto` / `auto-free` model selection
+
+Instead of a concrete model id, `model` accepts two special values that the
+actions resolve at runtime based on which API keys are configured:
+
+| Value | Behavior |
+|-------|----------|
+| `auto` | Pick the best model whose provider has an API key available |
+| `auto-free` | Same, but only consider providers with a generous free tier |
+
+Resolution order (first match wins):
+
+| # | Model | Free tier | Key needed |
+|---|-------|-----------|------------|
+| 1 | `opencode/deepseek-v3` | yes | no (anonymous) |
+| 2 | `opencode/big-pickle` | yes | no |
+| 3 | `groq/llama-3.3-70b-versatile` | yes | `GROQ_API_KEY` |
+| 4 | `puter/gpt-4o` | yes | `PUTER_AUTH_TOKEN` |
+| 5 | `google/gemini-1.5-flash` | yes | `GOOGLE_API_KEY` |
+| 6 | `mistral/codestral` | yes | `MISTRAL_API_KEY` |
+| 7 | `openai/gpt-4o-mini` | no | `OPENAI_API_KEY` |
+| 8 | `anthropic/claude-3-5-sonnet` | no | `ANTHROPIC_API_KEY` |
+| 9 | `x/grok-beta` | no | `XAI_API_KEY` |
+| 10 | `deepseek/deepseek-chat` | no | `DEEPSEEK_API_KEY` |
+| 11 | `ollama/codellama` | yes | no (local) |
+
+`auto-free` skips any provider without a free tier (rows 7–10). If nothing is
+available, the action falls back to the configured `fallback-provider`/
+`fallback-model`, then to `opencode/deepseek-v3`.
+
+**Concrete models** are accepted too, in `provider/model` or bare `model-id`
+(the `provider` input is prepended), e.g. `model: mixtral-8x7b` with
+`provider: mistral`.
 
 Recommended setup — create one repo secret per provider you use:
 
@@ -137,7 +171,10 @@ the templates wire it everywhere, falling back to `OPENCODE_API_KEY` if you
 prefer OpenCode's gateway instead.
 
 The fallback ensures reliability — if the primary provider is down or has no
-credits, the run continues with the fallback.
+credits, the run continues with the fallback. The default `model: auto-free`
+considers only free-tier providers, so AI features work even without any API
+key (anonymous opencode, ollama). Set `AI_MODEL: auto` or a concrete model to
+opt into paid providers.
 
 ### OpenCode automation
 
@@ -159,7 +196,7 @@ jobs:
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
-          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
       - name: Commit changes (if any)
         shell: bash

@@ -78,7 +78,7 @@ jobs:
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
-          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           prompt-file: /tmp/sync-prompt.txt
           git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>
@@ -124,7 +124,7 @@ jobs:
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
-          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           agent: ${{ vars.REVIEW_AGENT || 'build' }}
           timeout-minutes: "55"
@@ -230,7 +230,7 @@ jobs:
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
-          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           timeout-minutes: "55"
           git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>

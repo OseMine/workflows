@@ -28,7 +28,7 @@ jobs:
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
-          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'gpt-4o-mini' }}
+          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }} # optional (VIRUSTOTAL badge)
           virustotal-files: "target/release/*.exe dist/*.exe *.exe" # space-separated globs
