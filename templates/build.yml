@@ -1,0 +1,58 @@
+# Thin build workflow — copy into any project, set optional `language` and
+# `build` filters. Everything (language detection + dispatch to the per-language
+# build actions: rust-build, c-build, cpp-build, csharp-build, java-maven-build,
+# java-gradle-build, tauri-build, python-build, flutter-build, android-build,
+# ios-build, kmp-android-build) lives in the shared `build` action and updates
+# automatically at @main.
+#
+# Default trigger: workflow_dispatch (Actions tab → Run workflow), optional
+# push/PR triggers. Version bump the project files, set the tag, done.
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      language:
+        description: >-
+          Main stack(s): auto | rust | tauri | c | cpp | csharp | maven |
+          gradle | python | flutter | android | ios | kmp (comma-separated OK)
+        required: false
+        type: string
+        default: auto
+      build:
+        description: >-
+          Comma-separated build filters: cargo, tauri, python, flutter,
+          android, ios, kmp, c, cpp, csharp, java, all
+        required: false
+        type: string
+        default: all
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    name: Build artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: OseMine/workflows/.github/actions/build@main
+        with:
+          language: ${{ inputs.language || 'auto' }}
+          build: ${{ inputs.build || 'all' }}
+          # --- optional toolchain overrides ---
+          # rust-toolchain: stable
+          # java-version: 17
+          # java-distribution: temurin
+          # dotnet-version: "9.0"
+          # python-version: "3.12"
+          # --- signing for mobile (only when building android/kmp signed) ---
+          # android-signed: "false"
+          # keystore: ${{ secrets.ANDROID_KEYSTORE }}
+          # keystore-store-password: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+          # keystore-key-alias: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          # keystore-key-password: ${{ secrets.KEYSTORE_KEY_PASSWORD }}

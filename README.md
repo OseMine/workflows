@@ -1,4 +1,4 @@
-# gha-workflows — reusable GitHub Actions library
+# @OseMine/workflows: reusable GitHub Actions library
 
 A collection of reusable composite GitHub Actions you can consume from **any**
 project. All logic lives in this repository; projects only copy a thin
@@ -15,6 +15,28 @@ Update a composite action once → every consuming project inherits the fix.
 The templates already point at `OseMine/workflows@main`, so no action ref
 edits are needed. If you fork this repo, replace `OseMine/workflows` with your
 own org/repo throughout `templates/` and `.github/actions/`.
+
+### Build (multilanguage artifact dispatch)
+
+Copy `templates/build.yml`. The `build` action auto-detects the project's
+languages and runs every matching build action (`cargo`/`tauri`, `c`, `cpp`,
+`csharp`, `java` via maven or gradle, `python`, `flutter`, `android`, `ios`,
+`kmp`) — pass `language:` and `build:` to override detection and filter.
+
+```yaml
+name: Build
+on: {workflow_dispatch: {inputs: {}}}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: OseMine/workflows/.github/actions/build@main
+        with:
+          language: auto        # auto | rust | tauri | c | cpp | csharp | maven | gradle | python | flutter | android | ios | kmp
+          build: all            # cargo, tauri, python, flutter, android, ios, kmp, c, cpp, csharp, java, all
+          output-dir: dist
+```
 
 ### CI (push/PR quality gate)
 
@@ -238,6 +260,7 @@ jobs:
 | Action | Purpose | Primary language |
 |--------|---------|-----------------|
 | `ci` | Language auto-detect → lint + check + test | all |
+| `build` | Language auto-detect → dispatch to all per-language build actions | all |
 | `release-all` | Meta/semver + builds + security gate + AI notes + GitHub release | all |
 | `security` | Trivy + cargo-audit + npm audit + PHP lint + VirusTotal + AI review | all |
 | `opencode` | Git identity + model fallback chain + AI task runner | all |

@@ -1,0 +1,378 @@
+name: Build artifacts (language dispatcher)
+description: >-
+  Overlying build orchestrator. Detects the project's languages (or uses the
+  `language` input) and a `build` flag filter, then dispatches to the
+  language-specific build actions: rust-build, c-build, cpp-build,
+  csharp-build, java-maven-build, java-gradle-build, tauri-build, python-build,
+  flutter-build, android-build, ios-build, kmp-android-build. Every underlying
+  action is a drop-in step here, so this mirrors how `release-all` and `ci`
+  compose the library: all heavy logic lives in the shared actions and this
+  dispatcher just wires them together.
+author: gha-workflows
+
+inputs:
+  language:
+    description: >-
+      Main stack(s). One of: auto, rust, tauri, c, cpp, csharp, maven, gradle,
+      python, flutter, android, ios, kmp. Comma-separated lists allowed. 'auto'
+      detects from the repository files.
+    required: false
+    default: auto
+  build:
+    description: >-
+      Comma-separated artifact group filter: cargo, tauri, python, flutter,
+      android, ios, kmp, c, cpp, csharp, java. 'all' = everything that is
+      detected.
+    required: false
+    default: all
+  working-directory:
+    description: >-
+      Directory (relative to repo root) containing the project. Forwarded to
+      every underlying build action.
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory to collect build artifacts into (forwarded to every build action)."
+    required: false
+    default: dist
+  upload:
+    description: "Upload artifacts via actions/upload-artifact (true/false)."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Artifact name prefix forwarded to the underlying build actions."
+    required: false
+    default: build
+
+  # --- toolchain pass-throughs ---
+  rust-toolchain:
+    description: "Rust toolchain for rust/tauri builds (forwarded to rust-build / setup-rust)."
+    required: false
+    default: "stable"
+  dotnet-version:
+    description: ".NET SDK version for csharp builds (empty = runner pre-installed SDK)."
+    required: false
+    default: ""
+  java-version:
+    description: "JDK version for maven/gradle/flutter/android builds."
+    required: false
+    default: "17"
+  java-distribution:
+    description: "JDK distribution for maven/gradle builds."
+    required: false
+    default: temurin
+  gradle-cache:
+    description: "Use gradle/actions/setup-gradle cache in java-gradle/kmp builds."
+    required: false
+    default: "true"
+  python-version:
+    description: "Python version for python builds (forwarded to python-build)."
+    required: false
+    default: "3.12"
+
+  # --- mobile pass-throughs ---
+  android-signed:
+    description: "Sign the Android artifact (forwarded to android-build / kmp-android-build)."
+    required: false
+    default: "false"
+  keystore:
+    description: "Base64-encoded keystore for signing (when android-signed=true)."
+    required: false
+    default: ""
+  keystore-store-password:
+    description: "Keystore store password."
+    required: false
+    default: ""
+  keystore-key-alias:
+    description: "Keystore key alias."
+    required: false
+    default: ""
+  keystore-key-password:
+    description: "Keystore key password."
+    required: false
+    default: ""
+  android-dir:
+    description: "Android project directory (forwarded to android-build)."
+    required: false
+    default: android
+  ios-scheme:
+    description: "Xcode scheme for ios-build."
+    required: false
+    default: ""
+
+outputs:
+  languages:
+    description: "Detected/resolved languages (comma-separated)."
+    value: ${{ steps.detect.outputs.languages }}
+  build_flags:
+    description: "Resolved build group filter (comma-separated)."
+    value: ${{ steps.meta.outputs.build_flags }}
+  has-rust:
+    value: ${{ steps.detect.outputs.has-rust }}
+  has-tauri:
+    value: ${{ steps.detect.outputs.has-tauri }}
+  has-c:
+    value: ${{ steps.detect.outputs.has-c }}
+  has-cpp:
+    value: ${{ steps.detect.outputs.has-cpp }}
+  has-csharp:
+    value: ${{ steps.detect.outputs.has-csharp }}
+  has-maven:
+    value: ${{ steps.detect.outputs.has-maven }}
+  has-gradle:
+    value: ${{ steps.detect.outputs.has-gradle }}
+  has-python:
+    value: ${{ steps.detect.outputs.has-python }}
+  has-flutter:
+    value: ${{ steps.detect.outputs.has-flutter }}
+  has-kmp:
+    value: ${{ steps.detect.outputs.has-kmp }}
+  has-android:
+    value: ${{ steps.detect.outputs.has-android }}
+  has-ios:
+    value: ${{ steps.detect.outputs.has-ios }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve build group filter
+      id: meta
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        REQUESTED: ${{ inputs.build }}
+      run: |-
+        set -uo pipefail
+        REQ="$REQUESTED"
+        [ -z "$REQ" ] && REQ="all"
+        if [ "$REQ" = "all" ]; then
+          REQ="cargo,tauri,plugin,installer,python,android,ios,flutter,kmp,c,cpp,csharp,java"
+        fi
+        FLAGS=""
+        IFS=',' read -ra arr <<< "$REQ"
+        for b in "${arr[@]}"; do
+          case "$b" in
+            cargo)               FLAGS="${FLAGS},cargo" ;;
+            tauri)               FLAGS="${FLAGS},tauri" ;;
+            python|pyinstaller)  FLAGS="${FLAGS},python" ;;
+            android|apk)         FLAGS="${FLAGS},android" ;;
+            ios|ipa)             FLAGS="${FLAGS},ios" ;;
+            flutter)             FLAGS="${FLAGS},flutter" ;;
+            kmp|kotlin)          FLAGS="${FLAGS},kmp" ;;
+            c)                   FLAGS="${FLAGS},c" ;;
+            cpp|c\+\+|cc)        FLAGS="${FLAGS},cpp" ;;
+            csharp|dotnet|cs)    FLAGS="${FLAGS},csharp" ;;
+            java|maven|gradle)   FLAGS="${FLAGS},java" ;;
+            plugin|vst|clap)     FLAGS="${FLAGS},plugin" ;;
+            installer|innosetup) FLAGS="${FLAGS},installer" ;;
+            *) echo "::warning::unknown build flag '$b'" ;;
+          esac
+        done
+        FLAGS="${FLAGS#,}"
+        echo "build_flags=$FLAGS" >> "$GITHUB_OUTPUT"
+        echo "resolved build filter: $FLAGS"
+
+    - name: Detect / resolve language
+      id: detect
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        REQUESTED: ${{ inputs.language }}
+      run: |-
+        set -euo pipefail
+        detect_auto() {
+          local langs=""
+          if [ -f Cargo.toml ]; then
+            if [ -d src-tauri ]; then langs="${langs},tauri"; else langs="${langs},rust"; fi
+          fi
+          [ -f pubspec.yaml ] && langs="${langs},flutter"
+          { [ -f pyproject.toml ] || [ -f setup.py ] || [ -f requirements.txt ]; } && langs="${langs},python"
+          [ -f pom.xml ] && langs="${langs},maven"
+          if { [ -f build.gradle ] || [ -f build.gradle.kts ] || [ -f settings.gradle ] || [ -f settings.gradle.kts ]; }; then
+            langs="${langs},gradle"
+          fi
+          if { [ -f Makefile ] || [ -f CMakeLists.txt ]; }; then
+            if find . -maxdepth 3 -name '*.c' ! -path '*/node_modules/*' ! -path '*/build/*' | grep -q .; then
+              langs="${langs},c"
+            fi
+            if find . -maxdepth 3 \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) ! -path '*/node_modules/*' ! -path '*/build/*' | grep -q .; then
+              langs="${langs},cpp"
+            fi
+          fi
+          if find . -maxdepth 3 -name '*.cs' ! -path '*/node_modules/*' ! -path '*/obj/*' | grep -q .; then
+            langs="${langs},csharp"
+          fi
+          if [ -d android ] && { [ -f android/build.gradle ] || [ -f android/build.gradle.kts ]; }; then
+            langs="${langs},android"
+          fi
+          if [ -d ios ] || find . -maxdepth 3 -name '*.xcodeproj' | grep -q .; then
+            langs="${langs},ios"
+          fi
+          langs="${langs#,}"
+          [ -z "$langs" ] && langs="none"
+          echo "$langs"
+        }
+        if [ -z "$REQUESTED" ] || [ "$REQUESTED" = "auto" ]; then
+          RESOLVED=$(detect_auto)
+          if [ "$RESOLVED" = "none" ]; then
+            echo "::error::Could not auto-detect the project language. Set the 'language' input."
+            exit 1
+          fi
+          echo "auto-detected: $RESOLVED"
+        else
+          RESOLVED="$REQUESTED"
+        fi
+        RESOLVED="${RESOLVED//[[:space:]]/}"
+        NORMAL=""
+        IFS=',' read -ra arr <<< "$RESOLVED"
+        for l in "${arr[@]}"; do
+          case "$l" in
+            rust)          NORMAL="${NORMAL},rust" ;;
+            tauri)         NORMAL="${NORMAL},tauri" ;;
+            c)             NORMAL="${NORMAL},c" ;;
+            cpp|c\+\+|cc)  NORMAL="${NORMAL},cpp" ;;
+            csharp|cs)     NORMAL="${NORMAL},csharp" ;;
+            java|maven)    NORMAL="${NORMAL},maven" ;;
+            gradle|kotlin) NORMAL="${NORMAL},gradle" ;;
+            python|py)     NORMAL="${NORMAL},python" ;;
+            flutter)       NORMAL="${NORMAL},flutter" ;;
+            android|apk)   NORMAL="${NORMAL},android" ;;
+            ios|ipa)       NORMAL="${NORMAL},ios" ;;
+            kmp)           NORMAL="${NORMAL},kmp" ;;
+            *) echo "::warning::Unknown language '$l', ignoring" ;;
+          esac
+        done
+        NORMAL="${NORMAL#,}"
+        [ -z "$NORMAL" ] && NORMAL="none"
+        echo "languages=$NORMAL" >> "$GITHUB_OUTPUT"
+        IFS=',' read -ra out <<< "$NORMAL"
+        for l in rust tauri c cpp csharp maven gradle python flutter kmp android ios; do
+          present=$(printf '%s\n' "${out[@]}" | grep -qx "$l" && echo true || echo false)
+          printf 'has-%s=%s\n' "$l" "$present" >> "$GITHUB_OUTPUT"
+        done
+
+    # ---------------- Rust / Tauri ----------------
+    - name: Build Rust
+      if: ${{ steps.detect.outputs.has-rust == 'true' && contains(steps.meta.outputs.build_flags, 'cargo') }}
+      uses: OseMine/workflows/.github/actions/rust-build@main
+      with:
+        toolchain: ${{ inputs.rust-toolchain }}
+        working-directory: ${{ inputs.working-directory }}
+        output-dir: ${{ inputs.output-dir }}
+        upload: ${{ inputs.upload }}
+        artifact-name: ${{ inputs.artifact-name }}-rust
+
+    - name: Build Tauri
+      if: ${{ steps.detect.outputs.has-tauri == 'true' && contains(steps.meta.outputs.build_flags, 'tauri') }}
+      uses: OseMine/workflows/.github/actions/tauri-build@main
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        output-dir: ${{ inputs.output-dir }}
+        upload: ${{ inputs.upload }}
+        artifact-name: ${{ inputs.artifact-name }}-tauri
+
+    # ---------------- C / C++ ----------------
+    - name: Build C
+      if: ${{ steps.detect.outputs.has-c == 'true' && contains(steps.meta.outputs.build_flags, 'c') }}
+      uses: OseMine/workflows/.github/actions/c-build@main
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        output-dir: ${{ inputs.output-dir }}
+        upload: ${{ inputs.upload }}
+        artifact-name: ${{ inputs.artifact-name }}-c
+
+    - name: Build C++
+      if: ${{ steps.detect.outputs.has-cpp == 'true' && contains(steps.meta.outputs.build_flags, 'cpp') }}
+      uses: OseMine/workflows/.github/actions/cpp-build@main
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        output-dir: ${{ inputs.output-dir }}
+        upload: ${{ inputs.upload }}
+        artifact-name: ${{ inputs.artifact-name }}-cpp
+
+    # ---------------- C# / .NET ----------------
+    - name: Build C# / .NET
+      if: ${{ steps.detect.outputs.has-csharp == 'true' && contains(steps.meta.outputs.build_flags, 'csharp') }}
+      uses: OseMine/workflows/.github/actions/csharp-build@main
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+        working-directory: ${{ inputs.working-directory }}
+        output-dir: ${{ inputs.output-dir }}
+        upload: ${{ inputs.upload }}
+        artifact-name: ${{ inputs.artifact-name }}-dotnet
+
+    # ---------------- Java ----------------
+    - name: Build Java (Maven)
+      if: ${{ steps.detect.outputs.has-maven == 'true' && contains(steps.meta.outputs.build_flags, 'java') }}
+      uses: OseMine/workflows/.github/actions/java-maven-build@main
+      with:
+        java-version: ${{ inputs.java-version }}
+        java-distribution: ${{ inputs.java-distribution }}
+        working-directory: ${{ inputs.working-directory }}
+        output-dir: ${{ inputs.output-dir }}
+        upload: ${{ inputs.upload }}
+        artifact-name: ${{ inputs.artifact-name }}-java
+
+    - name: Build Java (Gradle)
+      if: ${{ steps.detect.outputs.has-gradle == 'true' && contains(steps.meta.outputs.build_flags, 'java') }}
+      uses: OseMine/workflows/.github/actions/java-gradle-build@main
+      with:
+        gradle-cache: ${{ inputs.gradle-cache }}
+        java-version: ${{ inputs.java-version }}
+        java-distribution: ${{ inputs.java-distribution }}
+        working-directory: ${{ inputs.working-directory }}
+        output-dir: ${{ inputs.output-dir }}
+        upload: ${{ inputs.upload }}
+        artifact-name: ${{ inputs.artifact-name }}-gradle
+
+    # ---------------- Python ----------------
+    - name: Build Python (sdist + wheel)
+      if: ${{ steps.detect.outputs.has-python == 'true' && contains(steps.meta.outputs.build_flags, 'python') }}
+      uses: OseMine/workflows/.github/actions/python-build@main
+      with:
+        python-version: ${{ inputs.python-version }}
+        working-directory: ${{ inputs.working-directory }}
+
+    # ---------------- Flutter ----------------
+    - name: Build Flutter (APK + AAB + IPA)
+      if: ${{ steps.detect.outputs.has-flutter == 'true' && contains(steps.meta.outputs.build_flags, 'flutter') }}
+      uses: OseMine/workflows/.github/actions/flutter-build@main
+      with:
+        java-version: ${{ inputs.java-version }}
+
+    # ---------------- Mobile native ----------------
+    - name: Build Android (native)
+      if: ${{ steps.detect.outputs.has-android == 'true' && contains(steps.meta.outputs.build_flags, 'android') }}
+      uses: OseMine/workflows/.github/actions/android-build@main
+      with:
+        signed: ${{ inputs.android-signed }}
+        keystore: ${{ inputs.keystore }}
+        keystore-store-password: ${{ inputs.keystore-store-password }}
+        keystore-key-alias: ${{ inputs.keystore-key-alias }}
+        keystore-key-password: ${{ inputs.keystore-key-password }}
+        android-dir: ${{ inputs.android-dir }}
+        artifact-name: ${{ inputs.artifact-name }}-android
+
+    - name: Build iOS (native)
+      if: ${{ steps.detect.outputs.has-ios == 'true' && contains(steps.meta.outputs.build_flags, 'ios') }}
+      uses: OseMine/workflows/.github/actions/ios-build@main
+      with:
+        scheme: ${{ inputs.ios-scheme }}
+        artifact-name: ${{ inputs.artifact-name }}-ios
+
+    - name: Build KMP (Android)
+      if: ${{ steps.detect.outputs.has-kmp == 'true' && contains(steps.meta.outputs.build_flags, 'kmp') }}
+      uses: OseMine/workflows/.github/actions/kmp-android-build@main
+      with:
+        signed: ${{ inputs.android-signed }}
+        keystore: ${{ inputs.keystore }}
+        keystore-store-password: ${{ inputs.keystore-store-password }}
+        keystore-key-alias: ${{ inputs.keystore-key-alias }}
+        keystore-key-password: ${{ inputs.keystore-key-password }}
+        java-version: ${{ inputs.java-version }}
+        gradle-version: ""
+
+    # ---------------- Summary ----------------
+    - name: Print resolved build plan
+      shell: bash
+      run: 'echo "languages=${{ steps.detect.outputs.languages }} flags=${{ steps.meta.outputs.build_flags }}"'
