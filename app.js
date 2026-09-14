@@ -121,18 +121,43 @@ function setOverride(stepIdx, inputId, value) {
   renderYaml();
 }
 
+function dropReorder(from, to) {
+  const s = state.steps.splice(from, 1)[0];
+  state.steps.splice(to, 0, s);
+}
+
 function renderSteps() {
   const wrap = $("#steps");
   wrap.innerHTML = "";
   if (!state.steps.length) {
-    wrap.appendChild(el("div", "empty",
-      "No steps yet — click <b>+ add</b> on an action in the left panel. " +
-      "<code>actions/checkout</code> is always prepended automatically."));
+    const empty = el("div", "empty");
+    empty.innerHTML = "No steps yet — click <b>+ add</b> on an action in the left panel. " +
+      "<code>actions/checkout</code> is always prepended automatically.";
+    wrap.appendChild(empty);
     return;
   }
   state.steps.forEach((s, idx) => {
     const step = el("div", "step");
+    step.draggable = true;
+    step.addEventListener("dragstart", (e) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(idx));
+      step.classList.add("dragging");
+    });
+    step.addEventListener("dragend", () => step.classList.remove("dragging"));
+    step.addEventListener("dragover", (e) => e.preventDefault());
+    step.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const from = Number(e.dataTransfer.getData("text/plain"));
+      if (!Number.isInteger(from) || from === idx) return;
+      dropReorder(from, idx);
+      renderSteps();
+      renderYaml();
+    });
     const head = el("div", "step-head");
+    const grip = el("span", "s-grip", "::");
+    grip.title = "drag to reorder";
+    head.appendChild(grip);
     head.appendChild(el("span", "s-num", `#${idx + 1}`));
     const nameInput = el("input", "s-name");
     nameInput.type = "text";
@@ -163,11 +188,18 @@ function renderSteps() {
     step.appendChild(head);
 
     const body = el("div", "step-body");
+    const collapse = el("button", "", "▾");
+    collapse.title = "collapse / expand inputs";
+    collapse.addEventListener("click", () => {
+      const collapsed = body.classList.toggle("collapsed");
+      collapse.textContent = collapsed ? "▸" : "▾";
+    });
+    head.insertBefore(collapse, up);
     (s.action.inputs || []).forEach((inp) => {
       const row = el("div", "input-row");
       const label = el("div", "i-label");
-      label.appendChild(el("b", "", esc(inp.id)));
-      if (inp.description) label.appendChild(el("span", "", esc(inp.description)));
+      label.appendChild(el("b", "", inp.id));
+      if (inp.description) label.appendChild(el("span", "", inp.description));
       row.appendChild(label);
 
       const val = s.overrides[inp.id] ?? inp.default ?? "";
@@ -284,7 +316,7 @@ function renderYaml() {
   lines.push("      id-token: write");
   lines.push("");
   lines.push("    steps:");
-  lines.push("      - uses: actions/checkout@v7");
+  lines.push("      - uses: actions/checkout@v4");
   lines.push("        with:");
   lines.push("          fetch-depth: 0");
 
