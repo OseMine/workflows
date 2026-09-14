@@ -165,6 +165,23 @@ header {
 :root[data-theme="dark"] .i-sun { display: none; }
 :root:not([data-theme="dark"]) .i-moon { display: none; }
 
+.ghost-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 12.5px;
+  text-decoration: none;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.ghost-link svg { width: 15px; height: 15px; }
+.ghost-link:hover { border-color: var(--ink-3); background: var(--canvas-2); text-decoration: none; }
+
 /* ── layout: workbench + preview ────────────────────────────────── */
 main {
   max-width: 1480px;
