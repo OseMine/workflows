@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: OseMine/workflows/.github/actions/ci@main
         with:
-          language: rust    # auto | rust | tauri | node | python | flutter | kmp | php | lua
+          language: rust    # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle | php | lua
 ```
 
 ### Release (workflow dispatch)
@@ -255,6 +255,13 @@ jobs:
 | `pyinstaller` | PyInstaller one-file binary build | python |
 | `pypi-publish` | OIDC twine trusted publishing | python |
 | `cargo-publish` | Idempotent crates.io publish | rust |
+| `rust-build` | cargo build + artifact collection | rust |
+| `c-build` | make/cmake/cc build + artifact collection | c |
+| `cpp-build` | cmake/make/g++ build + artifact collection | cpp |
+| `csharp-build` | dotnet build/publish + artifact collection | csharp |
+| `java-maven-build` | Maven build + jar/war collection | java (maven) |
+| `java-gradle-build` | Gradle build + jar/war/aar collection | java (gradle) |
+| `tauri-build` | Tauri (bundles) build on this runner | tauri |
 | `flutter-setup` | Flutter SDK + native deps | flutter |
 | `flutter-build` | APK + AAB + unsigned IPA + SHA256SUMS | flutter |
 | `kmp-setup` | Android SDK/NDK + Gradle cache | kmp |

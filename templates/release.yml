@@ -27,7 +27,7 @@ on:
         type: boolean
         default: false
       build:
-        description: "Comma-separated build flags: cargo, tauri, plugin, installer, python, android, ios, flutter, all"
+        description: "Comma-separated build flags: cargo, tauri, plugin, installer, python, android, ios, flutter, c, cpp, csharp, java, all"
         required: false
         type: string
         default: all
@@ -49,7 +49,7 @@ jobs:
 
       - uses: OseMine/workflows/.github/actions/release-all@main
         with:
-          language: rust            # auto | rust | tauri | node | python | flutter | kmp
+          language: auto            # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle
           build: ${{ github.event.inputs.build || 'all' }}
           release-tag: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || '' }}
           min-rating: "7"           # security gate 0-10; 0 disables

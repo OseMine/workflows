@@ -1,0 +1,150 @@
+name: Build C
+description: >-
+  Compile a C project. Detects build system automatically (Make, CMake, cc)
+  and collects the resulting binary into the output directory. Supports
+  cross-compilation and custom compiler flags via inputs.
+
+inputs:
+  build-system:
+    description: "Build system: auto, make, cmake, cc. Auto = detect from project files."
+    required: false
+    default: auto
+  compiler:
+    description: "C compiler (cc, gcc, clang, etc.)."
+    required: false
+    default: "cc"
+  args:
+    description: "Extra compiler/build flags (e.g. '-O2 -static')."
+    required: false
+    default: "-O2"
+  source:
+    description: "Source files or entrypoint for cc build (e.g. 'src/*.c')."
+    required: false
+    default: ""
+  working-directory:
+    description: "Directory containing the project."
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory to collect build artifacts into."
+    required: false
+    default: "dist"
+  artifact-globs:
+    description: "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect."
+    required: false
+    default: ""
+  output-binary:
+    description: "Expected binary name (for cc build). Empty = auto-detect."
+    required: false
+    default: ""
+  upload:
+    description: "Upload artifacts via actions/upload-artifact (true/false)."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name prefix for uploaded artifact."
+    required: false
+    default: "c"
+  extra-apt-packages:
+    description: "System packages to install before building (space-separated, e.g. 'libssl-dev')."
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install build dependencies
+      if: inputs.extra-apt-packages != ''
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y ${{ inputs.extra-apt-packages }}
+
+    - name: Detect build system
+      id: detect
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      env:
+        BUILD_SYSTEM: ${{ inputs.build-system }}
+      run: |-
+        if [ "$BUILD_SYSTEM" != "auto" ]; then
+          echo "system=$BUILD_SYSTEM" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if [ -f Makefile ] || [ -f makefile ] || [ -f GNUmakefile ]; then
+          echo "system=make" >> "$GITHUB_OUTPUT"
+        elif [ -f CMakeLists.txt ]; then
+          echo "system=cmake" >> "$GITHUB_OUTPUT"
+        else
+          echo "system=cc" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Build (make)
+      if: steps.detect.outputs.system == 'make'
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |
+        echo "::group::make ${{ inputs.args }}"
+        make ${{ inputs.args }}
+        echo "::endgroup::"
+
+    - name: Build (cmake)
+      if: steps.detect.outputs.system == 'cmake'
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |
+        echo "::group::cmake build"
+        cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ inputs.args }}
+        cmake --build build --config Release
+        echo "::endgroup::"
+
+    - name: Build (cc)
+      if: steps.detect.outputs.system == 'cc'
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |-
+        COMPILER="${{ inputs.compiler }}"
+        ARGS="${{ inputs.args }}"
+        OUTNAME="${{ inputs.output-binary }}"
+        SRC="${{ inputs.source }}"
+        if [ -z "$SRC" ]; then
+          # auto-detect C sources
+          SRC=$(find . -maxdepth 3 -name '*.c' -not -path '*/build/*' -not -path '*/dist/*' -not -path '*/.cache/*' | tr '\n' ' ')
+        fi
+        if [ -z "$SRC" ]; then
+          echo "::error::no C source files found. Set 'source' input explicitly."
+          exit 1
+        fi
+        if [ -z "$OUTNAME" ]; then
+          # extract primary binary name from first .c file
+          FIRST=$(echo "$SRC" | awk '{print $1}')
+          OUTNAME="${FIRST##*/}"
+          OUTNAME="${OUTNAME%.c}"
+        fi
+        echo "::group::cc $ARGS -o $OUTNAME $SRC"
+        $COMPILER $ARGS -o "$OUTNAME" $SRC
+        echo "::endgroup::"
+
+    - name: Collect artifacts
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      env:
+        BUILD_OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |-
+        source "${{ github.action_path }}/../lib-build/build.bash"
+        OUT="$(bb_outdir "$BUILD_OUTPUT_DIR")"
+        GLOBS="${{ inputs.artifact-globs }}"
+        if [ -z "$GLOBS" ]; then
+          GLOBS="*.exe *.dll *.dylib *.so *.bin ./build/*.exe ./build/*.so ./build/*.dylib ./build/*.dll ./build/Release/* ./build/Debug/*"
+        fi
+        echo "::group::collecting artifacts"
+        bb_collect "$OUT" $GLOBS
+        echo "::endgroup::"
+        echo "collected in $OUT: $(ls "$OUT" 2>/dev/null | wc -l) file(s)"
+
+    - name: Upload artifacts
+      if: inputs.upload == 'true' && inputs.output-dir == 'dist'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/dist/
+        retention-days: 14
+        if-no-files-found: warn

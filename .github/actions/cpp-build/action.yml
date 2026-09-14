@@ -1,0 +1,148 @@
+name: Build C++
+description: >-
+  Compile a C++ project. Detects build system automatically (CMake, make,
+  g++) and collects the resulting binary into the output directory. Supports
+  custom compilers, standards, and flags.
+
+inputs:
+  build-system:
+    description: "Build system: auto, cmake, make, g++. Auto = detect from project files."
+    required: false
+    default: auto
+  compiler:
+    description: "C++ compiler (g++, clang++, c++)."
+    required: false
+    default: "g++"
+  args:
+    description: "Extra compiler/build flags (e.g. '-O2 -std=c++20')."
+    required: false
+    default: "-O2"
+  source:
+    description: "Source files or entrypoint for g++ build (e.g. 'src/*.cpp')."
+    required: false
+    default: ""
+  working-directory:
+    description: "Directory containing the project."
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory to collect build artifacts into."
+    required: false
+    default: "dist"
+  artifact-globs:
+    description: "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect."
+    required: false
+    default: ""
+  output-binary:
+    description: "Expected binary name (for g++ build). Empty = auto-detect."
+    required: false
+    default: ""
+  upload:
+    description: "Upload artifacts via actions/upload-artifact (true/false)."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name prefix for uploaded artifact."
+    required: false
+    default: "cpp"
+  extra-apt-packages:
+    description: "System packages to install before building (space-separated)."
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install build dependencies
+      if: inputs.extra-apt-packages != ''
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y ${{ inputs.extra-apt-packages }}
+
+    - name: Detect build system
+      id: detect
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      env:
+        BUILD_SYSTEM: ${{ inputs.build-system }}
+      run: |-
+        if [ "$BUILD_SYSTEM" != "auto" ]; then
+          echo "system=$BUILD_SYSTEM" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if [ -f CMakeLists.txt ]; then
+          echo "system=cmake" >> "$GITHUB_OUTPUT"
+        elif [ -f Makefile ] || [ -f makefile ]; then
+          echo "system=make" >> "$GITHUB_OUTPUT"
+        else
+          echo "system=g++" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Build (cmake)
+      if: steps.detect.outputs.system == 'cmake'
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |
+        echo "::group::cmake build"
+        cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ inputs.args }}
+        cmake --build build --config Release
+        echo "::endgroup::"
+
+    - name: Build (make)
+      if: steps.detect.outputs.system == 'make'
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |
+        echo "::group::make ${{ inputs.args }}"
+        make ${{ inputs.args }}
+        echo "::endgroup::"
+
+    - name: Build (g++)
+      if: steps.detect.outputs.system == 'g++'
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |-
+        COMPILER="${{ inputs.compiler }}"
+        ARGS="${{ inputs.args }}"
+        OUTNAME="${{ inputs.output-binary }}"
+        SRC="${{ inputs.source }}"
+        if [ -z "$SRC" ]; then
+          SRC=$(find . -maxdepth 3 \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -not -path '*/build/*' -not -path '*/dist/*' | tr '\n' ' ')
+        fi
+        if [ -z "$SRC" ]; then
+          echo "::error::no C++ source files found. Set 'source' input explicitly."
+          exit 1
+        fi
+        if [ -z "$OUTNAME" ]; then
+          FIRST=$(echo "$SRC" | awk '{print $1}')
+          OUTNAME="${FIRST##*/}"
+          OUTNAME="${OUTNAME%.*}"
+        fi
+        echo "::group::$COMPILER $ARGS -o $OUTNAME $SRC"
+        $COMPILER $ARGS -o "$OUTNAME" $SRC
+        echo "::endgroup::"
+
+    - name: Collect artifacts
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      env:
+        BUILD_OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |-
+        source "${{ github.action_path }}/../lib-build/build.bash"
+        OUT="$(bb_outdir "$BUILD_OUTPUT_DIR")"
+        GLOBS="${{ inputs.artifact-globs }}"
+        if [ -z "$GLOBS" ]; then
+          GLOBS="*.exe *.dll *.dylib *.so *.bin ./build/*.exe ./build/*.so ./build/*.dylib ./build/*.dll ./build/Release/* ./build/Debug/*"
+        fi
+        echo "::group::collecting artifacts"
+        bb_collect "$OUT" $GLOBS
+        echo "::endgroup::"
+        echo "collected in $OUT: $(ls "$OUT" 2>/dev/null | wc -l) file(s)"
+
+    - name: Upload artifacts
+      if: inputs.upload == 'true' && inputs.output-dir == 'dist'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/dist/
+        retention-days: 14
+        if-no-files-found: warn

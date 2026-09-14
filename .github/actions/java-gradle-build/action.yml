@@ -1,0 +1,110 @@
+name: Build Java (Gradle)
+description: >-
+  Build a Java/Kotlin/Groovy project with Gradle. Uses the gradle wrapper when
+  present, runs tests optionally, and collects artifacts into the output dir.
+
+inputs:
+  command:
+    description: "Gradle tasks, e.g. build, assemble, publishToMavenLocal."
+    required: false
+    default: build
+  args:
+    description: "Extra gradle arguments (e.g. '-x test --console=plain')."
+    required: false
+    default: ""
+  gradle-version:
+    description: "Gradle version (empty = use wrapper ./gradlew)."
+    required: false
+    default: ""
+  gradle-cache:
+    description: "Use gradle/actions/setup-gradle cache (true/false)."
+    required: false
+    default: "true"
+  java-version:
+    description: "JDK version."
+    required: false
+    default: "17"
+  java-distribution:
+    description: "JDK distribution (temurin, zulu, corretto...)."
+    required: false
+    default: temurin
+  working-directory:
+    description: "Directory containing settings.gradle / build.gradle (relative to repo root)."
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory to collect build artifacts into."
+    required: false
+    default: "dist"
+  artifact-globs:
+    description: "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect."
+    required: false
+    default: ""
+  upload:
+    description: "Upload artifacts via actions/upload-artifact (true/false)."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name prefix for uploaded artifact."
+    required: false
+    default: "gradle"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: ${{ inputs.java-distribution }}
+        java-version: ${{ inputs.java-version }}
+
+    - name: Setup Gradle
+      if: inputs.gradle-version != ''
+      uses: gradle/actions/setup-gradle@v6
+      with:
+        gradle-version: ${{ inputs.gradle-version }}
+        gradle-home-cache-cleanup: ${{ inputs.gradle-cache }}
+
+    - name: Build (gradle)
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |-
+        set -uo pipefail
+        GRADLE="gradle"
+        if [ -f ./gradlew ]; then
+          chmod +x ./gradlew
+          GRADLE="./gradlew"
+        fi
+        CMD="${{ inputs.command }}"
+        ARGS="${{ inputs.args }}"
+        echo "::group::$GRADLE $CMD $ARGS"
+        $GRADLE "$CMD" $ARGS
+        RC=$?
+        echo "::endgroup::"
+        exit $RC
+
+    - name: Collect artifacts
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      env:
+        BUILD_OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |-
+        source "${{ github.action_path }}/../lib-build/build.bash"
+        OUT="$(bb_outdir "$BUILD_OUTPUT_DIR")"
+        GLOBS="${{ inputs.artifact-globs }}"
+        if [ -z "$GLOBS" ]; then
+          GLOBS="build/libs/*.jar build/libs/*.war build/libs/*.aar build/outputs/apk/*/*.apk"
+        fi
+        echo "::group::collecting artifacts"
+        bb_collect "$OUT" $GLOBS
+        echo "::endgroup::"
+        echo "collected in $OUT: $(ls "$OUT" 2>/dev/null | wc -l) file(s)"
+
+    - name: Upload artifacts
+      if: inputs.upload == 'true' && inputs.output-dir == 'dist'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/dist/
+        retention-days: 14
+        if-no-files-found: warn

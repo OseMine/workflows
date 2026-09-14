@@ -1,0 +1,176 @@
+name: Build Tauri
+description: >-
+  Build a Tauri desktop application (Rust + webview frontend). Supports
+  building the Rust binary, the full Tauri bundle (AppImage/deb/nsis/msi/dmg),
+  and collecting release artifacts.
+
+inputs:
+  command:
+    description: "Build command: bundle, build, tauri-build, or custom shell line."
+    required: false
+    default: bundle
+  args:
+    description: "Extra args for the tauri CLI (e.g. '--bundles appimage,deb')."
+    required: false
+    default: ""
+  frontend:
+    description: "Frontend dir relative to working-dir (empty = auto-detect)."
+    required: false
+    default: ""
+  frontend-build-command:
+    description: "Command to build the frontend (embeds UI). Empty = skip."
+    required: false
+    default: ""
+  frontend-dist:
+    description: "Frontend build output dir (for beforeBuildCommand to populate)."
+    required: false
+    default: ""
+  working-directory:
+    description: "Directory containing tauri.conf.json / src-tauri (relative to repo root)."
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory to collect build artifacts into."
+    required: false
+    default: "dist"
+  artifact-globs:
+    description: "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect."
+    required: false
+    default: ""
+  install-tauri-cli:
+    description: "Install tauri-cli via cargo (true/false)."
+    required: false
+    default: "true"
+  tauri-cli-version:
+    description: "tauri-cli version to install (empty = latest)."
+    required: false
+    default: ""
+  rust-target:
+    description: "Rust target triple for cross-compile (empty = host)."
+    required: false
+    default: ""
+  linux-deps:
+    description: "Extra Linux system deps for Tauri build (space-separated, e.g. 'libwebkit2gtk-4.1-dev')."
+    required: false
+    default: ""
+  upload:
+    description: "Upload artifacts via actions/upload-artifact (true/false)."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name prefix for uploaded artifact."
+    required: false
+    default: "tauri"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Rust
+      uses: OseMine/workflows/.github/actions/setup-rust@main
+      with:
+        rust-toolchain: stable
+
+    - name: Install Linux Tauri deps
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |-
+        echo "::group::install tauri linux deps"
+        sudo apt-get update -y
+        DEPS="libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsqlite3-dev build-essential curl wget file ${{ inputs.linux-deps }}"
+        sudo apt-get install -y $DEPS
+        echo "::endgroup::"
+
+    - name: Install tauri-cli
+      if: inputs.install-tauri-cli == 'true'
+      shell: bash
+      run: |-
+        VER="${{ inputs.tauri-cli-version }}"
+        if [ -n "$VER" ]; then
+          cargo install tauri-cli --version "$VER" --locked
+        else
+          cargo install tauri-cli --locked
+        fi
+
+    - name: Detect src-tauri dir
+      id: dir
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |-
+        if [ -f tauri.conf.json ]; then
+          echo "sdir=." >> "$GITHUB_OUTPUT"
+        elif [ -f src-tauri/tauri.conf.json ] || [ -f src-tauri/tauri.conf.json5 ]; then
+          echo "sdir=src-tauri" >> "$GITHUB_OUTPUT"
+        else
+          echo "::error::tauri.conf.json not found. Set 'working-directory' correctly."
+          exit 1
+        fi
+
+    - name: Build frontend
+      if: inputs.frontend-build-command != ''
+      working-directory: ${{ inputs.frontend }}
+      shell: bash
+      run: eval "${{ inputs.frontend-build-command }}"
+
+    - name: Build Tauri app
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TAURI_DIR: ${{ steps.dir.outputs.sdir }}
+      shell: bash
+      run: |-
+        set -uo pipefail
+        CMD="${{ inputs.command }}"
+        ARGS="${{ inputs.args }}"
+        TARGET="${{ inputs.rust-target }}"
+
+        case "$CMD" in
+          bundle)
+            BINARGS=""
+            [ -n "$TARGET" ] && BINARGS="--target $TARGET"
+            echo "::group::cargo tauri build $BINARGS $ARGS"
+            (cd "$TAURI_DIR" && cargo tauri build $BINARGS $ARGS)
+            ;;
+          build)
+            BINARGS=""
+            [ -n "$TARGET" ] && BINARGS="--target $TARGET"
+            echo "::group::cargo tauri dev/build $BINARGS $ARGS"
+            (cd "$TAURI_DIR" && cargo tauri build $BINARGS $ARGS)
+            ;;
+          tauri-build)
+            echo "::group::cargo tauri build $ARGS"
+            (cd "$TAURI_DIR" && cargo tauri build $ARGS)
+            ;;
+          *)
+            echo "::group::$CMD $ARGS"
+            eval "$CMD $ARGS"
+            ;;
+        esac
+        RC=$?
+        echo "::endgroup::"
+        exit $RC
+
+    - name: Collect artifacts
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      env:
+        BUILD_OUTPUT_DIR: ${{ inputs.output-dir }}
+        TAURI_DIR: ${{ steps.dir.outputs.sdir }}
+      run: |-
+        source "${{ github.action_path }}/../lib-build/build.bash"
+        OUT="$(bb_outdir "$BUILD_OUTPUT_DIR")"
+        GLOBS="${{ inputs.artifact-globs }}"
+        if [ -z "$GLOBS" ]; then
+          GLOBS="$TAURI_DIR/target/release/bundle/deb/* $TAURI_DIR/target/release/bundle/appimage/* $TAURI_DIR/target/release/bundle/rpm/* $TAURI_DIR/target/release/bundle/msi/* $TAURI_DIR/target/release/bundle/nsis/* $TAURI_DIR/target/release/bundle/dmg/* $TAURI_DIR/target/release/*.exe"
+        fi
+        echo "::group::collecting artifacts"
+        bb_collect "$OUT" $GLOBS
+        echo "::endgroup::"
+        echo "collected in $OUT: $(ls "$OUT" 2>/dev/null | wc -l) file(s)"
+
+    - name: Upload artifacts
+      if: inputs.upload == 'true' && inputs.output-dir == 'dist'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/dist/
+        retention-days: 14
+        if-no-files-found: warn

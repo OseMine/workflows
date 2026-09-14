@@ -1,0 +1,122 @@
+name: Build C# / .NET
+description: >-
+  Build a .NET solution. Supports single/multi-project builds, test execution,
+  self-contained single-file publish, and custom artifact globs.
+
+inputs:
+  command:
+    description: "dotnet command: build, test, publish. Default = build."
+    required: false
+    default: build
+  project:
+    description: "Project/solution path (e.g. MyApp/MyApp.csproj). Empty = auto-detect."
+    required: false
+    default: ""
+  configuration:
+    description: "Build configuration (Release, Debug)."
+    required: false
+    default: Release
+  args:
+    description: "Extra dotnet arguments (e.g. '--no-restore -p:Version=1.0.0')."
+    required: false
+    default: ""
+  self-contained:
+    description: "Publish self-contained single-file (true/false, for command=publish)."
+    required: false
+    default: "false"
+  runtime:
+    description: "Runtime identifier for publish (e.g. win-x64, linux-x64, osx-x64). Empty = current."
+    required: false
+    default: ""
+  working-directory:
+    description: "Directory containing the solution (relative to repo root)."
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory to collect build artifacts into."
+    required: false
+    default: "dist"
+  artifact-globs:
+    description: "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect."
+    required: false
+    default: ""
+  dotnet-version:
+    description: "SDK version (empty = use .NET SDK pre-installed on runner)."
+    required: false
+    default: ""
+  upload:
+    description: "Upload artifacts via actions/upload-artifact (true/false)."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name prefix for uploaded artifact."
+    required: false
+    default: "dotnet"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET
+      if: inputs.dotnet-version != ''
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Build (.NET)
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: |-
+        set -uo pipefail
+        CMD="${{ inputs.command }}"
+        CFG="${{ inputs.configuration }}"
+        ARGS="${{ inputs.args }}"
+        PROJ="${{ inputs.project }}"
+        if [ -z "$PROJ" ]; then
+          PROJ=$(find . -maxdepth 3 \( -name '*.sln' -o -name '*.csproj' \) -not -path '*/obj/*' -not -path '*/node_modules/*' | head -1)
+        fi
+        if [ -z "$PROJ" ]; then
+          echo "::error::no .sln/.csproj found. Set 'project' input explicitly."
+          exit 1
+        fi
+        echo "::group::dotnet $CMD $PROJ"
+        if [ "$CMD" = "publish" ]; then
+          RID="${{ inputs.runtime }}"
+          RIDARG=""
+          [ -n "$RID" ] && RIDARG="-r $RID"
+          if [ "${{ inputs.self-contained }}" = "true" ]; then
+            dotnet publish "$PROJ" -c "$CFG" --self-contained true -p:PublishSingleFile=true $RIDARG $ARGS
+          else
+            dotnet publish "$PROJ" -c "$CFG" $RIDARG $ARGS
+          fi
+        else
+          dotnet "$CMD" "$PROJ" -c "$CFG" $ARGS
+        fi
+        RC=$?
+        echo "::endgroup::"
+        exit $RC
+
+    - name: Collect artifacts
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      env:
+        BUILD_OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |-
+        source "${{ github.action_path }}/../lib-build/build.bash"
+        OUT="$(bb_outdir "$BUILD_OUTPUT_DIR")"
+        GLOBS="${{ inputs.artifact-globs }}"
+        if [ -z "$GLOBS" ]; then
+          GLOBS="bin/${{ inputs.configuration }}/*.exe bin/${{ inputs.configuration }}/*.dll bin/Release/publish/*" 
+        fi
+        echo "::group::collecting artifacts"
+        bb_collect "$OUT" $GLOBS
+        echo "::endgroup::"
+        echo "collected in $OUT: $(ls "$OUT" 2>/dev/null | wc -l) file(s)"
+
+    - name: Upload artifacts
+      if: inputs.upload == 'true' && inputs.output-dir == 'dist'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/dist/
+        retention-days: 14
+        if-no-files-found: warn

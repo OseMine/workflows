@@ -1,0 +1,112 @@
+name: Build Rust
+description: >-
+  Build a Rust project with cargo. Detects release binaries automatically and
+  collects them into the output directory. Inputs are fully overridable so the
+  action works for pure Rust, C FFI, WebAssembly, and cross-compiled targets.
+
+inputs:
+  cargo-command:
+    description: "Cargo subcommand (build, install, etc.). Empty = detect."
+    required: false
+    default: ""
+  args:
+    description: "Extra cargo arguments (e.g. '--release --locked --features foo')."
+    required: false
+    default: "--release"
+  working-directory:
+    description: "Directory containing Cargo.toml (relative to repo root)."
+    required: false
+    default: "."
+  output-dir:
+    description: "Directory to collect build artifacts into."
+    required: false
+    default: "dist"
+  artifact-globs:
+    description: "Space-separated glob patterns for artifacts to collect (relative to working-dir)."
+    required: false
+    default: ""
+  binary:
+    description: "Binary name override (for install command; empty = auto-detect from Cargo.toml)."
+    required: false
+    default: ""
+  toolchain:
+    description: "Rust toolchain version (stable, nightly, 1.80.0, etc.)."
+    required: false
+    default: ""
+  upload:
+    description: "Upload artifacts via actions/upload-artifact (true/false)."
+    required: false
+    default: "true"
+  artifact-name:
+    description: "Name prefix for uploaded artifact."
+    required: false
+    default: "rust"
+
+runs:
+  using: composite
+  steps:
+    - uses: OseMine/workflows/.github/actions/setup-rust@main
+      if: inputs.toolchain != ''
+      with:
+        rust-toolchain: ${{ inputs.toolchain }}
+
+    - name: Build (cargo)
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |-
+        source "${{ github.action_path }}/../lib-build/build.bash"
+        CMD="${{ inputs.cargo-command }}"
+        if [ -z "$CMD" ]; then
+          CMD="cargo"
+        fi
+        ARGS="${{ inputs.args }}"
+        BIN="${{ inputs.binary }}"
+        ARGS=" $ARGS --message-format=plain"
+        if [ "$CMD" = "cargo" ]; then
+          echo "::group::cargo build $ARGS"
+          cargo build $ARGS
+          RC=$?
+          echo "::endgroup::"
+        elif [ "$CMD" = "install" ]; then
+          if [ -n "$BIN" ]; then
+            echo "::group::cargo install $BIN $ARGS"
+            cargo install "$BIN" $ARGS
+          else
+            echo "::group::cargo install $ARGS"
+            cargo install $ARGS
+          fi
+          RC=$?
+          echo "::endgroup::"
+        else
+          echo "::group::$CMD $ARGS"
+          $CMD $ARGS
+          RC=$?
+          echo "::endgroup::"
+        fi
+        exit $RC
+
+    - name: Collect artifacts
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BUILD_OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |-
+        source "${{ github.action_path }}/../lib-build/build.bash"
+        OUT="$(bb_outdir "$BUILD_OUTPUT_DIR")"
+        GLOBS="${{ inputs.artifact-globs }}"
+        if [ -z "$GLOBS" ]; then
+          GLOBS="target/release/*.exe target/release/*.dll target/release/*.dylib target/release/*.so"
+        fi
+        echo "::group::collecting artifacts"
+        bb_collect "$OUT" $GLOBS
+        echo "::endgroup::"
+        echo "collected in $OUT: $(ls "$OUT" 2>/dev/null | wc -l) file(s)"
+
+    - name: Upload artifacts
+      if: inputs.upload == 'true' && inputs.output-dir == 'dist'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/dist/
+        retention-days: 14
+        if-no-files-found: warn

@@ -165,7 +165,7 @@ runs:
         FLAGS=""
         REQUESTED="$BUILD"
         [ -z "$REQUESTED" ] && REQUESTED="all"
-        [ "$REQUESTED" = "all" ] && { REQUESTED="cargo,tauri,plugin,installer,python,android,ios,flutter"; }
+        [ "$REQUESTED" = "all" ] && { REQUESTED="cargo,tauri,plugin,installer,python,android,ios,flutter,c,cpp,csharp,java"; }
         IFS=',' read -ra arr <<< "$REQUESTED"
         for b in "${arr[@]}"; do
           case "$b" in
@@ -178,16 +178,20 @@ runs:
             android|apk)        FLAGS="${FLAGS},android" ;;
             ios|ipa)            FLAGS="${FLAGS},ios" ;;
             flutter)            FLAGS="${FLAGS},flutter" ;;
+            c)                  FLAGS="${FLAGS},c" ;;
+            cpp|c\+\+|cc)       FLAGS="${FLAGS},cpp" ;;
+            csharp|dotnet|cs)   FLAGS="${FLAGS},csharp" ;;
+            java|maven|gradle)  FLAGS="${FLAGS},java" ;;
             *) echo "::warning::unknown build flag '$b'" ;;
           esac
         done
         FLAGS="${FLAGS#,}"
 
         LANG="${{ inputs.language }}"
-        [ -z "$LANG" ] || [ "$LANG" = "auto" ] && LANG="rust,node,python,flutter,kmp,php,lua,tauri"
+        [ -z "$LANG" ] || [ "$LANG" = "auto" ] && LANG="rust,node,python,flutter,kmp,php,lua,tauri,c,cpp,csharp,java"
         PRUNED=""
         IFS=',' read -ra la <<< "$LANG"
-        for flag in cargo tauri plugin installer python android ios flutter; do
+        for flag in cargo tauri plugin installer python android ios flutter c cpp csharp java; do
           echo ",$FLAGS," | grep -q ",$flag," || continue
           echo ",$PRUNED," | grep -q ",$flag," && continue
           PRUNED="${PRUNED},$flag"
@@ -216,6 +220,11 @@ runs:
           [ -f pubspec.yaml ] && LANG="${LANG},flutter"
           [ -f package.json ] && LANG="${LANG},node"
           { [ -f pyproject.toml ] || [ -f setup.py ]; } && LANG="${LANG},python"
+          if [ -f pom.xml ]; then LANG="${LANG},maven"
+          elif [ -f build.gradle ] || [ -f build.gradle.kts ] || [ -f settings.gradle ]; then LANG="${LANG},gradle"
+          fi
+          { [ -f Makefile ] || [ -f CMakeLists.txt ]; } && { ls *.c >/dev/null 2>&1 || ls *.cpp *.cc *.cxx >/dev/null 2>&1; } && LANG="${LANG},c-cpp"
+          ls *.cs >/dev/null 2>&1 && LANG="${LANG},csharp"
           LANG="${LANG#,}"
           [ -z "$LANG" ] && LANG="none"
         fi
@@ -271,6 +280,30 @@ runs:
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'android') && contains(steps.lang.outputs.language, 'kmp') }}
       uses: OseMine/workflows/.github/actions/kmp-android-build@main
 
+    - name: Tauri desktop app build
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'tauri') }}
+      uses: OseMine/workflows/.github/actions/tauri-build@main
+
+    - name: C build
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'c') && contains(steps.lang.outputs.language, 'c-cpp') }}
+      uses: OseMine/workflows/.github/actions/c-build@main
+
+    - name: C++ build
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'cpp') && contains(steps.lang.outputs.language, 'c-cpp') }}
+      uses: OseMine/workflows/.github/actions/cpp-build@main
+
+    - name: C# / .NET build
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'csharp') && contains(steps.lang.outputs.language, 'csharp') }}
+      uses: OseMine/workflows/.github/actions/csharp-build@main
+
+    - name: Java build (Maven)
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'java') && contains(steps.lang.outputs.language, 'maven') }}
+      uses: OseMine/workflows/.github/actions/java-maven-build@main
+
+    - name: Java build (Gradle)
+      if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'java') && contains(steps.lang.outputs.language, 'gradle') }}
+      uses: OseMine/workflows/.github/actions/java-gradle-build@main
+
     - name: Collect artifacts
       shell: bash
       working-directory: ${{ github.workspace }}
@@ -285,9 +318,9 @@ runs:
         fi
 
         if [ "${{ inputs.mode }}" = "full" ]; then
-          for dir in target/release dist/release build/Release dist_signed/bin artifacts out; do
+          for dir in target/release dist/release dist build/Release dist_signed/bin artifacts out; do
             [ -d "$dir" ] || continue
-            find "$dir" -maxdepth 2 -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.dmg' -o -name '*.apk' -o -name '*.aab' -o -name '*.ipa' -o -name '*.tar.gz' -o -name '*.whl' -o -name '*.zip' -o -name '*.nocache' \) 2>/dev/null -print0 | xargs -0 -r -I{} cp -n {} dist/ 2>/dev/null || true
+            find "$dir" -maxdepth 2 -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.dmg' -o -name '*.apk' -o -name '*.aab' -o -name '*.ipa' -o -name '*.tar.gz' -o -name '*.whl' -o -name '*.zip' -o -name '*.nocache' -o -name '*.jar' -o -name '*.war' -o -name '*.aar' -o -name '*.dll' -o -name '*.so' -o -name '*.dylib' -o -name '*.bin' -o -name '*.AppImage' \) 2>/dev/null -print0 | xargs -0 -r -I{} cp -n {} dist/ 2>/dev/null || true
           done
         else
           if [ -n "${{ inputs.artifacts }}" ]; then
