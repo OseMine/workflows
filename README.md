@@ -10,6 +10,18 @@ Update a composite action once → every consuming project inherits the fix.
 Pin each release to `@v1` for stability; move to `@latest` to track changes
 immediately. `@main` also works but tracks the branch head directly.
 
+### Web workflow builder (visual)
+
+Point-and-click workflow composer for this whole library — browse every
+`@v1`/`@latest`/`@main` action, configure inputs in a UI, and download the
+ready-to-commit `.yml`. The action catalog auto-updates from `catalog.json`
+on `main`, so new actions appear without redeploying.
+
+- Live: `https://osemine.github.io/workflows/` (deploy the `web` branch via
+  Pages: branch `web`, folder `/ (root)`).
+- Source: `web/` on the `web` branch · catalog generator:
+  `scripts/build-catalog.py` (+ auto-regen in `.github/workflows/library-ci.yml`).
+
 ## Usage (fast path)
 
 1. **Copy a template** from `templates/` into your project's `.github/workflows/`.

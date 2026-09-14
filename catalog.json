@@ -1,0 +1,2667 @@
+{
+  "schema": 1,
+  "source": "OseMine/workflows",
+  "actions": [
+    {
+      "id": "android-build",
+      "name": "Build Android APK",
+      "description": "Set up JDK + Gradle, optionally sign, build and upload an APK. Works on ubuntu-24.04 which ships Android SDK pre-installed.",
+      "uses": "OseMine/workflows/.github/actions/android-build@v1",
+      "inputs": [
+        {
+          "id": "signed",
+          "description": "Build a signed release APK (true) or unsigned debug APK (false)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "keystore",
+          "description": "Base64-encoded JKS keystore (required when signed=true)",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-store-password",
+          "description": "Keystore password",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-key-alias",
+          "description": "Key alias",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-key-password",
+          "description": "Key password",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name for the uploaded artifact",
+          "default": "android",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "android-dir",
+          "description": "Path to the Android project directory",
+          "default": "android",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 7
+    },
+    {
+      "id": "build",
+      "name": "Build artifacts (language dispatcher)",
+      "description": "Overlying build orchestrator. Detects the project's languages (or uses the `language` input) and a `build` flag filter, then dispatches to the language-specific build actions: rust-build, c-build, cpp-build, csharp-build, java-maven-build, java-gradle-build, tauri-build, python-build, flutter-build, android-build, ios-build, kmp-android-build. Every underlying action is a drop-in step here, so this mirrors how `release-all` and `ci` compose the library: all heavy logic lives in the shared actions and this dispatcher just wires them together.",
+      "uses": "OseMine/workflows/.github/actions/build@v1",
+      "inputs": [
+        {
+          "id": "language",
+          "description": "Main stack(s). One of: auto, rust, tauri, c, cpp, csharp, maven, gradle, python, flutter, android, ios, kmp. Comma-separated lists allowed. 'auto' detects from the repository files.",
+          "default": "auto",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "build",
+          "description": "Comma-separated artifact group filter: cargo, tauri, python, flutter, android, ios, kmp, c, cpp, csharp, java. 'all' = everything that is detected.",
+          "default": "all",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory (relative to repo root) containing the project. Forwarded to every underlying build action.",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into (forwarded to every build action).",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Artifact name prefix forwarded to the underlying build actions.",
+          "default": "build",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "rust-toolchain",
+          "description": "Rust toolchain for rust/tauri builds (forwarded to rust-build / setup-rust).",
+          "default": "stable",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "dotnet-version",
+          "description": ".NET SDK version for csharp builds (empty = runner pre-installed SDK).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-version",
+          "description": "JDK version for maven/gradle/flutter/android builds.",
+          "default": "17",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-distribution",
+          "description": "JDK distribution for maven/gradle builds.",
+          "default": "temurin",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "gradle-cache",
+          "description": "Use gradle/actions/setup-gradle cache in java-gradle/kmp builds.",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "python-version",
+          "description": "Python version for python builds (forwarded to python-build).",
+          "default": "3.12",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "android-signed",
+          "description": "Sign the Android artifact (forwarded to android-build / kmp-android-build).",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "keystore",
+          "description": "Base64-encoded keystore for signing (when android-signed=true).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-store-password",
+          "description": "Keystore store password.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-key-alias",
+          "description": "Keystore key alias.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-key-password",
+          "description": "Keystore key password.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "android-dir",
+          "description": "Android project directory (forwarded to android-build).",
+          "default": "android",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "ios-scheme",
+          "description": "Xcode scheme for ios-build.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [
+        {
+          "id": "languages",
+          "description": "Detected/resolved languages (comma-separated)."
+        },
+        {
+          "id": "build_flags",
+          "description": "Resolved build group filter (comma-separated)."
+        },
+        {
+          "id": "has-rust",
+          "description": ""
+        },
+        {
+          "id": "has-tauri",
+          "description": ""
+        },
+        {
+          "id": "has-c",
+          "description": ""
+        },
+        {
+          "id": "has-cpp",
+          "description": ""
+        },
+        {
+          "id": "has-csharp",
+          "description": ""
+        },
+        {
+          "id": "has-maven",
+          "description": ""
+        },
+        {
+          "id": "has-gradle",
+          "description": ""
+        },
+        {
+          "id": "has-python",
+          "description": ""
+        },
+        {
+          "id": "has-flutter",
+          "description": ""
+        },
+        {
+          "id": "has-kmp",
+          "description": ""
+        },
+        {
+          "id": "has-android",
+          "description": ""
+        },
+        {
+          "id": "has-ios",
+          "description": ""
+        }
+      ],
+      "inputs_count": 19
+    },
+    {
+      "id": "bundle",
+      "name": "Bundle plugins",
+      "description": "Builds audio plugins (VST3/CLAP) via xtask and uploads them as artifacts. For nih-plug and similar Rust audio plugin projects.",
+      "uses": "OseMine/workflows/.github/actions/bundle@v1",
+      "inputs": [
+        {
+          "id": "artifact",
+          "description": "Artifact name prefix (e.g. 'myplugin-bundles'). Set empty to skip upload.",
+          "default": "bundles",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "xtask-cmd",
+          "description": "xtask command to run",
+          "default": "bundle",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 2
+    },
+    {
+      "id": "c-build",
+      "name": "Build C",
+      "description": "Compile a C project. Detects build system automatically (Make, CMake, cc) and collects the resulting binary into the output directory. Supports cross-compilation and custom compiler flags via inputs.",
+      "uses": "OseMine/workflows/.github/actions/c-build@v1",
+      "inputs": [
+        {
+          "id": "build-system",
+          "description": "Build system: auto, make, cmake, cc. Auto = detect from project files.",
+          "default": "auto",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "compiler",
+          "description": "C compiler (cc, gcc, clang, etc.).",
+          "default": "cc",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "args",
+          "description": "Extra compiler/build flags (e.g. '-O2 -static').",
+          "default": "-O2",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "source",
+          "description": "Source files or entrypoint for cc build (e.g. 'src/*.c').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing the project.",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into.",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-globs",
+          "description": "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-binary",
+          "description": "Expected binary name (for cc build). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name prefix for uploaded artifact.",
+          "default": "c",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "extra-apt-packages",
+          "description": "System packages to install before building (space-separated, e.g. 'libssl-dev').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 11
+    },
+    {
+      "id": "cargo-publish",
+      "name": "Publish to crates.io",
+      "description": "Publish the Rust crate to crates.io with the provided API token. Skips if the version is already published (idempotent).",
+      "uses": "OseMine/workflows/.github/actions/cargo-publish@v1",
+      "inputs": [
+        {
+          "id": "token",
+          "description": "crates.io API token (pass secrets.CARGO_REGISTRY_TOKEN)",
+          "default": "",
+          "required": true,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing the Cargo.toml to publish (relative to repo root)",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 2
+    },
+    {
+      "id": "checks",
+      "name": "Run rust checks",
+      "description": "Full Rust quality gate: formatting, clippy (-D warnings), and the complete test suite. Intended for every Rust job regardless of the workflow that hosts it.",
+      "uses": "OseMine/workflows/.github/actions/checks@v1",
+      "inputs": [
+        {
+          "id": "manifest",
+          "description": "Path to Cargo.toml (leave empty for workspace root)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "workspace-flag",
+          "description": "Use --workspace flag for multi-crate repos",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "test-env",
+          "description": "JSON map of environment variables for tests (e.g. '{\"KEY\":\"value\"}')",
+          "default": "{}",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 3
+    },
+    {
+      "id": "ci",
+      "name": "CI (language dispatcher)",
+      "description": "Setup, lint, and test a project based on its language. Detects the stack automatically or uses the provided `language` input. All heavy logic lives here so projects only need a thin workflow.",
+      "uses": "OseMine/workflows/.github/actions/ci@v1",
+      "inputs": [
+        {
+          "id": "language",
+          "description": "Main stack. One of: auto, rust, tauri, node, python, flutter, kmp, php, lua. Comma-separated lists allowed (e.g. 'rust,node'). 'auto' detects from the repository files.",
+          "default": "auto",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "rust-toolchain",
+          "description": "Rust toolchain to install for rust/tauri/kmp stacks.",
+          "default": "stable",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [
+        {
+          "id": "languages",
+          "description": "Detected/resolved languages (comma-separated)."
+        },
+        {
+          "id": "has-rust",
+          "description": ""
+        },
+        {
+          "id": "has-node",
+          "description": ""
+        },
+        {
+          "id": "has-python",
+          "description": ""
+        },
+        {
+          "id": "has-flutter",
+          "description": ""
+        },
+        {
+          "id": "has-kmp",
+          "description": ""
+        },
+        {
+          "id": "has-php",
+          "description": ""
+        },
+        {
+          "id": "has-lua",
+          "description": ""
+        }
+      ],
+      "inputs_count": 2
+    },
+    {
+      "id": "cpp-build",
+      "name": "Build C++",
+      "description": "Compile a C++ project. Detects build system automatically (CMake, make, g++) and collects the resulting binary into the output directory. Supports custom compilers, standards, and flags.",
+      "uses": "OseMine/workflows/.github/actions/cpp-build@v1",
+      "inputs": [
+        {
+          "id": "build-system",
+          "description": "Build system: auto, cmake, make, g++. Auto = detect from project files.",
+          "default": "auto",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "compiler",
+          "description": "C++ compiler (g++, clang++, c++).",
+          "default": "g++",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "args",
+          "description": "Extra compiler/build flags (e.g. '-O2 -std=c++20').",
+          "default": "-O2",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "source",
+          "description": "Source files or entrypoint for g++ build (e.g. 'src/*.cpp').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing the project.",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into.",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-globs",
+          "description": "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-binary",
+          "description": "Expected binary name (for g++ build). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name prefix for uploaded artifact.",
+          "default": "cpp",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "extra-apt-packages",
+          "description": "System packages to install before building (space-separated).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 11
+    },
+    {
+      "id": "csharp-build",
+      "name": "Build C# / .NET",
+      "description": "Build a .NET solution. Supports single/multi-project builds, test execution, self-contained single-file publish, and custom artifact globs.",
+      "uses": "OseMine/workflows/.github/actions/csharp-build@v1",
+      "inputs": [
+        {
+          "id": "command",
+          "description": "dotnet command: build, test, publish. Default = build.",
+          "default": "build",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "project",
+          "description": "Project/solution path (e.g. MyApp/MyApp.csproj). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "configuration",
+          "description": "Build configuration (Release, Debug).",
+          "default": "Release",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "args",
+          "description": "Extra dotnet arguments (e.g. '--no-restore -p:Version=1.0.0').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "self-contained",
+          "description": "Publish self-contained single-file (true/false, for command=publish).",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "runtime",
+          "description": "Runtime identifier for publish (e.g. win-x64, linux-x64, osx-x64). Empty = current.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing the solution (relative to repo root).",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into.",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-globs",
+          "description": "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "dotnet-version",
+          "description": "SDK version (empty = use .NET SDK pre-installed on runner).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name prefix for uploaded artifact.",
+          "default": "dotnet",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 12
+    },
+    {
+      "id": "flutter-build",
+      "name": "Flutter build",
+      "description": "Build Flutter artifacts (APK universal + split-per-abi, AAB, and/or unsigned IPA) and package release artifacts with checksums and a release manifest.",
+      "uses": "OseMine/workflows/.github/actions/flutter-build@v1",
+      "inputs": [
+        {
+          "id": "build-apk",
+          "description": "Build universal + split-per-abi APKs (true/false)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "build-aab",
+          "description": "Build Android App Bundle (true/false)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "build-ipa",
+          "description": "Build unsigned iOS IPA (true/false, needs macOS runner)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "split-per-abi",
+          "description": "Build ABI-specific APKs (true/false)",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-prefix",
+          "description": "Naming prefix for packaged artifacts",
+          "default": "app",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "release-tag",
+          "description": "Release tag used in artifact names (e.g. v1.2.0)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-version",
+          "description": "JDK version for Android builds",
+          "default": "17",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 7
+    },
+    {
+      "id": "flutter-setup",
+      "name": "Setup Flutter",
+      "description": "Install a Flutter SDK with dependency caching and optional native-build cache.",
+      "uses": "OseMine/workflows/.github/actions/flutter-setup@v1",
+      "inputs": [
+        {
+          "id": "flutter-version",
+          "description": "Flutter SDK version (e.g. \"3.47.0\")",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "channel",
+          "description": "Flutter channel (stable, beta, dev)",
+          "default": "stable",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "cache-deps",
+          "description": "Cache pub dependencies (true/false)",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "native-cache-name",
+          "description": "Cache key suffix for a native build cache dir (e.g. \"linux\"). Empty to skip.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "native-cache-path",
+          "description": "Path to the native build cache (used with native-cache-name)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 5
+    },
+    {
+      "id": "github-release",
+      "name": "Create GitHub Release",
+      "description": "Derive the version from the pushed tag, build a changelog from git log, and create the GitHub release with optional assets + checksums. Requires `permissions: contents: write` in the calling workflow.",
+      "uses": "OseMine/workflows/.github/actions/github-release@v1",
+      "inputs": [
+        {
+          "id": "tag",
+          "description": "Release tag (defaults to the pushed tag ref)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "name",
+          "description": "Release name (defaults to the tag)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "body-preface",
+          "description": "Markdown added above the changelog",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "body-file",
+          "description": "Path to a markdown file used as the full release body (overrides body-preface/changelog)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "generate-notes",
+          "description": "Also generate GitHub's auto release notes (true/false)",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "draft",
+          "description": "Create as draft (true/false)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "prerelease",
+          "description": "Mark as prerelease (true/false)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "assets",
+          "description": "Files or glob patterns to upload (space-separated, e.g. \"dist/*.tar.gz dist/SHA256SUMS.txt dist/release-manifest.json\").",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "github-token",
+          "description": "Token used to create the release (defaults to GITHUB_TOKEN).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 9
+    },
+    {
+      "id": "installer",
+      "name": "Build Windows installer",
+      "description": "Builds a Windows installer (Inno Setup) from bundled plugins. Reads version from Cargo.toml. Only runs on Windows runners.",
+      "uses": "OseMine/workflows/.github/actions/installer@v1",
+      "inputs": [
+        {
+          "id": "app-name",
+          "description": "Application name for the installer",
+          "default": "",
+          "required": true,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "bundles-dir",
+          "description": "Directory containing plugin bundles",
+          "default": "target/bundled",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact",
+          "description": "Artifact name for the uploaded installer",
+          "default": "installer",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 3
+    },
+    {
+      "id": "ios-build",
+      "name": "Build iOS IPA",
+      "description": "Builds an iOS app with xcodebuild and packages an unsigned IPA. Requires macOS runner with Xcode installed. Uses XcodeGen to generate the Xcode project from a project.yml spec.",
+      "uses": "OseMine/workflows/.github/actions/ios-build@v1",
+      "inputs": [
+        {
+          "id": "project-dir",
+          "description": "Path to the iOS project directory",
+          "default": "ios",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "scheme",
+          "description": "Xcode scheme name",
+          "default": "",
+          "required": true,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "xcode-version",
+          "description": "Xcode.app name to select (e.g. 'Xcode_16.2')",
+          "default": "Xcode_16.2",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "config",
+          "description": "Build configuration (Debug or Release)",
+          "default": "Debug",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "build-script",
+          "description": "Path to IPA packaging script (leave empty to skip IPA)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name for the uploaded IPA artifact",
+          "default": "ios",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "retention-days",
+          "description": "Artifact retention in days",
+          "default": "14",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "xcodegen",
+          "description": "Use XcodeGen to generate the project",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 8
+    },
+    {
+      "id": "java-gradle-build",
+      "name": "Build Java (Gradle)",
+      "description": "Build a Java/Kotlin/Groovy project with Gradle. Uses the gradle wrapper when present, runs tests optionally, and collects artifacts into the output dir.",
+      "uses": "OseMine/workflows/.github/actions/java-gradle-build@v1",
+      "inputs": [
+        {
+          "id": "command",
+          "description": "Gradle tasks, e.g. build, assemble, publishToMavenLocal.",
+          "default": "build",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "args",
+          "description": "Extra gradle arguments (e.g. '-x test --console=plain').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "gradle-version",
+          "description": "Gradle version (empty = use wrapper ./gradlew).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "gradle-cache",
+          "description": "Use gradle/actions/setup-gradle cache (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "java-version",
+          "description": "JDK version.",
+          "default": "17",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-distribution",
+          "description": "JDK distribution (temurin, zulu, corretto...).",
+          "default": "temurin",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing settings.gradle / build.gradle (relative to repo root).",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into.",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-globs",
+          "description": "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name prefix for uploaded artifact.",
+          "default": "gradle",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 11
+    },
+    {
+      "id": "java-maven-build",
+      "name": "Build Java (Maven)",
+      "description": "Build a Java project with Maven. Runs tests optionally, packages the jar, and collects artifacts into the output directory.",
+      "uses": "OseMine/workflows/.github/actions/java-maven-build@v1",
+      "inputs": [
+        {
+          "id": "command",
+          "description": "Maven goal(s), e.g. package, test, install.",
+          "default": "package",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "args",
+          "description": "Extra mvn arguments (e.g. '-DskipTests -Dmaven.javadoc.skip=true').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "mvn-version",
+          "description": "Maven version (empty = use wrapper ./mvnw or system mvn).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "mvn-repo",
+          "description": "Path to Maven repo dir (empty = use bundled/global).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-version",
+          "description": "JDK version.",
+          "default": "17",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-distribution",
+          "description": "JDK distribution (temurin, zulu, corretto...).",
+          "default": "temurin",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing pom.xml (relative to repo root).",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into.",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-globs",
+          "description": "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name prefix for uploaded artifact.",
+          "default": "java",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 11
+    },
+    {
+      "id": "kmp-android-build",
+      "name": "KMP Android build",
+      "description": "Kotlin Multiplatform Android APK build (signed or unsigned)",
+      "uses": "OseMine/workflows/.github/actions/kmp-android-build@v1",
+      "inputs": [
+        {
+          "id": "signed",
+          "description": "Whether to sign the APK (true/false)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "keystore",
+          "description": "Base64-encoded keystore",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-store-password",
+          "description": "Keystore password",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-key-alias",
+          "description": "Key alias",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "keystore-key-password",
+          "description": "Key password",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "artifact-name",
+          "description": "Upload artifact name",
+          "default": "android-release",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "build-variant",
+          "description": "Gradle build variant",
+          "default": "release",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-version",
+          "description": "JDK version",
+          "default": "21",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "gradle-version",
+          "description": "Gradle wrapper version",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 9
+    },
+    {
+      "id": "kmp-ios-build",
+      "name": "KMP iOS build",
+      "description": "Kotlin Multiplatform iOS IPA build (unsigned)",
+      "uses": "OseMine/workflows/.github/actions/kmp-ios-build@v1",
+      "inputs": [
+        {
+          "id": "artifact-name",
+          "description": "Upload artifact name",
+          "default": "ios-release",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "version",
+          "description": "CFBundleShortVersionString",
+          "default": "1.0.0",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "build-number",
+          "description": "CFBundleVersion",
+          "default": "1",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "java-version",
+          "description": "JDK version (needed for Gradle/Android SDK even on iOS)",
+          "default": "21",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "gradle-version",
+          "description": "Gradle wrapper version",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "ipa-name",
+          "description": "Output IPA filename",
+          "default": "app.ipa",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 6
+    },
+    {
+      "id": "kmp-setup",
+      "name": "KMP setup",
+      "description": "Set up JDK + Gradle cache for Kotlin Multiplatform builds",
+      "uses": "OseMine/workflows/.github/actions/kmp-setup@v1",
+      "inputs": [
+        {
+          "id": "java-version",
+          "description": "JDK version",
+          "default": "21",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "gradle-version",
+          "description": "Gradle wrapper version (empty = auto-detect from gradle/wrapper/gradle-wrapper.properties)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 2
+    },
+    {
+      "id": "lint",
+      "name": "Run rust lints",
+      "description": "Fast formatting and clippy feedback without the full build/test suite. Use this for quick CI lint checks.",
+      "uses": "OseMine/workflows/.github/actions/lint@v1",
+      "inputs": [
+        {
+          "id": "manifest",
+          "description": "Path to Cargo.toml (leave empty for workspace root)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "workspace-flag",
+          "description": "Use --workspace flag for multi-crate repos",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 2
+    },
+    {
+      "id": "nextcloud-app",
+      "name": "Nextcloud app package",
+      "description": "Package a Nextcloud app folder as a .zip",
+      "uses": "OseMine/workflows/.github/actions/nextcloud-app@v1",
+      "inputs": [
+        {
+          "id": "app-dir",
+          "description": "Directory containing the Nextcloud app (with appinfo/info.xml)",
+          "default": "flutcloud-app",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-name",
+          "description": "Upload artifact name",
+          "default": "nextcloud-app",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-name",
+          "description": "Output zip filename (without .zip)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 3
+    },
+    {
+      "id": "opencode",
+      "name": "Run OpenCode (AI automation)",
+      "description": "Runs opencode-ai with a prompt inside the checked-out repository using a primary provider+model and a fallback provider+model (API keys per provider). Sets git identity, runs the first model that works, and summarizes. Projects call this from a thin workflow so the AI logic can be updated centrally.",
+      "uses": "OseMine/workflows/.github/actions/opencode@v1",
+      "inputs": [
+        {
+          "id": "prompt",
+          "description": "Prompt/task to run (project-specific text). Use prompt-file instead when the prompt needs runtime content (git diff, real issues, etc.).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "prompt-file",
+          "description": "Path (absolute or relative to working-directory) to a file containing the prompt. Prefers prompt-file over prompt when both are set.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "agent",
+          "description": "opencode agent to use.",
+          "default": "build",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "provider",
+          "description": "Primary AI provider: custom, opencode, google, openai, mistral, anthropic, x, deepseek, groq, puter, together, cerebras, openrouter, huggingface, lmstudio (local, no key needed), ollama (local, no key needed).",
+          "default": "opencode",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "model",
+          "description": "Primary model. 'provider/model' or just the model id (provider input is prepended automatically). Special values: 'auto' (pick best available based on API keys), 'auto-free' (pick best free-tier model).",
+          "default": "auto-free",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "api-key",
+          "description": "API key for the primary provider (empty = anonymous/local model if possible).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "fallback-provider",
+          "description": "Fallback AI provider (same list as `provider`).",
+          "default": "opencode",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "fallback-model",
+          "description": "Fallback model (same format as model). Special values: 'auto', 'auto-free'.",
+          "default": "auto-free",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "fallback-api-key",
+          "description": "API key for the fallback provider (empty = omitted).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "custom-api-base",
+          "description": "Base URL for the custom provider (OpenAI-compatible, e.g. https://api.example.com/v1). Required when provider=custom.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "custom-api-key",
+          "description": "API key for the custom provider (defaults to api-key).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "custom-model",
+          "description": "Model id to use with the custom provider (overrides `model`).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "opencode-version",
+          "description": "Version of the opencode-ai npm package to use.",
+          "default": "1.18.29",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory to run in (relative to the workspace).",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "git-identity",
+          "description": "Commit identity, as 'Name <email>'.",
+          "default": "GitHub Actions <github-actions[bot]@users.noreply.github.com>",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "timeout-minutes",
+          "description": "Hard timeout for the run.",
+          "default": "45",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 16
+    },
+    {
+      "id": "php-lint",
+      "name": "PHP lint",
+      "description": "PHP CodeSniffer / Psalm / PHPStan lint",
+      "uses": "OseMine/workflows/.github/actions/php-lint@v1",
+      "inputs": [
+        {
+          "id": "php-version",
+          "description": "PHP version",
+          "default": "8.4",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "directory",
+          "description": "Directory to lint",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "phpcs-standard",
+          "description": "PHPCS standard (e.g. PSR12, WordPress)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "phpstan-level",
+          "description": "PHPStan level (0-9, empty to skip)",
+          "default": "5",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "skip-phpcs",
+          "description": "Skip PHPCS",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "skip-phpstan",
+          "description": "Skip PHPStan",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 6
+    },
+    {
+      "id": "pyinstaller",
+      "name": "Build with PyInstaller",
+      "description": "Builds a Python executable with PyInstaller. Handles platform-specific packaging: .exe on Windows, .app bundle on macOS, plain binary on Linux. Uploads artifacts automatically.",
+      "uses": "OseMine/workflows/.github/actions/pyinstaller@v1",
+      "inputs": [
+        {
+          "id": "name",
+          "description": "Executable name (without extension)",
+          "default": "",
+          "required": true,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "entry",
+          "description": "Entry point script (e.g. 'main.py')",
+          "default": "",
+          "required": true,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "paths",
+          "description": "Additional paths to add (passed to --paths)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "windowed",
+          "description": "Build as windowed/no-console app",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "onefile",
+          "description": "Build as single file (--onefile)",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "extra-args",
+          "description": "Additional PyInstaller arguments",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-prefix",
+          "description": "Prefix for artifact names (e.g. 'myapp')",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "retention-days",
+          "description": "Artifact retention in days",
+          "default": "7",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "pyinstaller-version",
+          "description": "PyInstaller version to install",
+          "default": "6.22.0",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 9
+    },
+    {
+      "id": "pypi-publish",
+      "name": "Publish to PyPI",
+      "description": "Publish built distributions to PyPI using trusted publishing (OIDC). Requires `permissions: id-token: write` and a PyPI trusted publisher configured for this repository and the calling workflow.",
+      "uses": "OseMine/workflows/.github/actions/pypi-publish@v1",
+      "inputs": [
+        {
+          "id": "working-directory",
+          "description": "Directory that contains the built dist/ folder (relative to repo root)",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 1
+    },
+    {
+      "id": "python-build",
+      "name": "Build Python package",
+      "description": "Build an sdist and wheel and optionally verify the wheel installs and imports in a clean venv.",
+      "uses": "OseMine/workflows/.github/actions/python-build@v1",
+      "inputs": [
+        {
+          "id": "python-version",
+          "description": "Python version to build with",
+          "default": "3.12",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing the buildable package (relative to repo root)",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "smoke-test",
+          "description": "Install the wheel in a clean venv and import the package (true/false)",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "import-check",
+          "description": "Import statement to verify in the smoke test (e.g. \"from mypkg import *; import mypkg\")",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 4
+    },
+    {
+      "id": "python-setup",
+      "name": "Setup Python",
+      "description": "Installs Python with pip caching and project dependencies. Supports requirements.txt, pyproject.toml, or custom dependency files.",
+      "uses": "OseMine/workflows/.github/actions/python-setup@v1",
+      "inputs": [
+        {
+          "id": "python-version",
+          "description": "Python version (e.g. '3.11', '3.12', '3.x')",
+          "default": "3.11",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "requirements",
+          "description": "Path to requirements file (e.g. 'requirements.txt')",
+          "default": "requirements.txt",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "extra-deps",
+          "description": "Extra pip packages to install (space separated)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "cache",
+          "description": "Enable pip caching",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 4
+    },
+    {
+      "id": "release-all",
+      "name": "Release",
+      "description": "Unified release pipeline. Two modes: - full (default): version resolution -> builds -> security gate -> AI notes -> GitHub release with SHA256SUMS + manifest - simple: download artifacts / use local files -> create GitHub release (with optional AI/auto-generated notes)",
+      "uses": "OseMine/workflows/.github/actions/release-all@v1",
+      "inputs": [
+        {
+          "id": "mode",
+          "description": "Pipeline mode. 'full' = builds + security + AI notes; 'simple' = artifacts + release only.",
+          "default": "full",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "language",
+          "description": "Main stack: auto, rust, tauri, node, python, flutter, kmp, php, lua. Comma-separated.",
+          "default": "auto",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "release-tag",
+          "description": "Version tag to use. Empty = auto-detect from pubspec.yaml / Cargo.toml / package.json.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "draft",
+          "description": "Create the release as a draft.",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "prerelease",
+          "description": "Mark as prerelease (default false, or auto from semver pre-release tags).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "github-token",
+          "description": "Token for creating the release. Defaults to github.token.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "build",
+          "description": "Comma-separated artifact groups (cargo, tauri, plugin, installer, python, android, ios, flutter). 'all' = everything.",
+          "default": "all",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "min-rating",
+          "description": "Minimum security rating (0-10) required to release. 0 disables.",
+          "default": "7",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "security",
+          "description": "Run security gate before releasing.",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "ios-scheme",
+          "description": "Xcode scheme name for native iOS build (forwarded to ios-build).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "provider",
+          "description": "Primary AI provider for notes + security (custom, opencode, google, openai, mistral, anthropic, x, deepseek, groq, puter, together, cerebras, openrouter, huggingface, lmstudio, ollama).",
+          "default": "opencode",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "model",
+          "description": "Primary model. 'provider/model' or just the model id (provider input is prepended automatically). Special values: 'auto' (pick best available based on API keys), 'auto-free' (pick best free-tier model).",
+          "default": "auto-free",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "api-key",
+          "description": "API key for primary provider.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "fallback-provider",
+          "description": "Fallback AI provider.",
+          "default": "opencode",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "fallback-model",
+          "description": "Fallback model. Special values: 'auto', 'auto-free'.",
+          "default": "auto-free",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "fallback-api-key",
+          "description": "API key for fallback provider.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "custom-api-base",
+          "description": "Base URL for the custom provider (OpenAI-compatible, e.g. https://api.example.com/v1). Required when provider=custom.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "custom-api-key",
+          "description": "API key for the custom provider (defaults to api-key).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "custom-model",
+          "description": "Model id to use with the custom provider (overrides `model`).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "opencode-version",
+          "description": "opencode-ai npm version for AI release notes.",
+          "default": "1.18.29",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-pattern",
+          "description": "Artifact names to download (leave empty to skip download).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifacts",
+          "description": "Glob pattern for local files to upload (e.g. 'dist/*').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "notes-file",
+          "description": "Path to pre-written release notes file.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "generate-notes",
+          "description": "Use GitHub's auto-generated release notes.",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "release-notes-command",
+          "description": "Custom command for release notes (disables AI + git-log). Env gets RELEASE_TAG/RELEASE_NAME.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "version-file",
+          "description": "Path to a version file to consume when auto-detecting.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "use-opencode",
+          "description": "Deprecated; use provider/model/api-key instead.",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "opencode-api-key",
+          "description": "Deprecated alias for api-key.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "opencode-model",
+          "description": "Deprecated alias for model.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 29
+    },
+    {
+      "id": "rust-build",
+      "name": "Build Rust",
+      "description": "Build a Rust project with cargo. Detects release binaries automatically and collects them into the output directory. Inputs are fully overridable so the action works for pure Rust, C FFI, WebAssembly, and cross-compiled targets.",
+      "uses": "OseMine/workflows/.github/actions/rust-build@v1",
+      "inputs": [
+        {
+          "id": "cargo-command",
+          "description": "Cargo subcommand (build, install, etc.). Empty = detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "args",
+          "description": "Extra cargo arguments (e.g. '--release --locked --features foo').",
+          "default": "--release",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing Cargo.toml (relative to repo root).",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into.",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-globs",
+          "description": "Space-separated glob patterns for artifacts to collect (relative to working-dir).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "binary",
+          "description": "Binary name override (for install command; empty = auto-detect from Cargo.toml).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "toolchain",
+          "description": "Rust toolchain version (stable, nightly, 1.80.0, etc.).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name prefix for uploaded artifact.",
+          "default": "rust",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 9
+    },
+    {
+      "id": "security",
+      "name": "Security gate",
+      "description": "Scans the whole project for security issues and condenses them into a categorized report plus a security rating (0-10): dependency vulnerabilities (Trivy across all lockfiles, npm audit, cargo-audit), VirusTotal artifact reputation scans (optional, needs an API key), hardcoded secrets (Trivy), PHP syntax errors (auto-detected), optional verification tests and an optional AI code review via OpenCode. Findings are reported as run annotations and in the step summary. The action fails when the rating is below min-rating or a critical finding exists - callers can use this to abort releases.",
+      "uses": "OseMine/workflows/.github/actions/security@v1",
+      "inputs": [
+        {
+          "id": "min-rating",
+          "description": "Minimum security rating (0-10) required to pass the gate.",
+          "default": "7",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "opencode-api-key",
+          "description": "Deprecated alias for api-key (review is skipped when model is empty).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "provider",
+          "description": "Primary AI provider: custom, opencode, google, openai, mistral, anthropic, x, deepseek, groq, puter, together, cerebras, openrouter, huggingface, lmstudio (local, no key needed), ollama (local, no key needed).",
+          "default": "opencode",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "model",
+          "description": "Primary model. 'provider/model' or just the model id (provider input is prepended automatically). Special values: 'auto' (pick best available based on API keys), 'auto-free' (pick best free-tier model). Empty = skip AI review.",
+          "default": "auto-free",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "api-key",
+          "description": "API key for the primary provider (overrides opencode-api-key).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "fallback-provider",
+          "description": "Fallback AI provider for the review (same list as `provider`).",
+          "default": "opencode",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "fallback-model",
+          "description": "Fallback model for the review (same format as model). Special values: 'auto', 'auto-free'.",
+          "default": "auto-free",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "fallback-api-key",
+          "description": "API key for the fallback provider.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "custom-api-base",
+          "description": "Base URL for the custom provider (OpenAI-compatible, e.g. https://api.example.com/v1). Required when provider=custom.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "custom-api-key",
+          "description": "API key for the custom provider (defaults to api-key).",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "custom-model",
+          "description": "Model id to use with the custom provider (overrides `model`).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "virustotal-api-key",
+          "description": "VirusTotal API key (see virustotal.mjs). The VirusTotal scan is skipped if empty.",
+          "default": "",
+          "required": false,
+          "secret_like": true,
+          "boolean": false
+        },
+        {
+          "id": "virustotal-files",
+          "description": "Space-separated file paths/globs to scan with VirusTotal (optional). Scanned files are looked up by sha256; unknown files up to 32 MiB are uploaded and polled.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "test-cmd",
+          "description": "Optional verification command(s) run as part of the gate (e.g. \"cargo test --manifest-path Cargo.toml && npm run build\"). Empty to skip.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "php-dir",
+          "description": "Directory holding PHP files to syntax-check (globs OK, space separated). Empty = auto-detect *.php anywhere.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "opencode-cmd",
+          "description": "OpenCode CLI invocation (npx/npm pin) for the AI review.",
+          "default": "npx --yes opencode-ai@1.18.29",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [
+        {
+          "id": "rating",
+          "description": "Computed security rating (0-10)."
+        },
+        {
+          "id": "verdict",
+          "description": "pass | fail"
+        },
+        {
+          "id": "critical",
+          "description": "Number of critical findings."
+        },
+        {
+          "id": "high",
+          "description": "Number of high findings."
+        },
+        {
+          "id": "medium",
+          "description": "Number of medium findings."
+        },
+        {
+          "id": "low",
+          "description": "Number of low findings."
+        },
+        {
+          "id": "total",
+          "description": "Total number of findings."
+        }
+      ],
+      "inputs_count": 16
+    },
+    {
+      "id": "setup",
+      "name": "Setup Rust toolchain",
+      "description": "Installs the Rust toolchain with clippy and rustfmt, platform-specific dependencies, and a shared cargo cache. Supports both Tauri and audio plugin (nih-plug) projects.",
+      "uses": "OseMine/workflows/.github/actions/setup@v1",
+      "inputs": [
+        {
+          "id": "rust-version",
+          "description": "Rust toolchain version (e.g. 'stable', '1.97', 'nightly')",
+          "default": "stable",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "components",
+          "description": "Additional toolchain components (comma separated)",
+          "default": "clippy,rustfmt",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "workspace",
+          "description": "Cargo workspace path for cache (relative to repo root, e.g. 'src-tauri')",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "deps",
+          "description": "Dependency profile: 'tauri' | 'audio' | 'none'",
+          "default": "tauri",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 4
+    },
+    {
+      "id": "setup-python",
+      "name": "Setup Python",
+      "description": "Install a specific Python version and upgrade pip.",
+      "uses": "OseMine/workflows/.github/actions/setup-python@v1",
+      "inputs": [
+        {
+          "id": "python-version",
+          "description": "Python version to install",
+          "default": "3.12",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 1
+    },
+    {
+      "id": "setup-rust",
+      "name": "Setup Rust",
+      "description": "Install the stable Rust toolchain with optional components, enable build caching, and optionally install system dev headers (ALSA, etc.).",
+      "uses": "OseMine/workflows/.github/actions/setup-rust@v1",
+      "inputs": [
+        {
+          "id": "rust-toolchain",
+          "description": "Rust toolchain to install (e.g. stable, 1.80, nightly)",
+          "default": "stable",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "components",
+          "description": "Space-separated rustup components to install (e.g. \"fmt clippy\")",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "cache",
+          "description": "Enable the shared Rust build cache (true/false)",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "alsa",
+          "description": "Install libasound2-dev (true/false)",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "packages",
+          "description": "Extra apt packages to install (space separated)",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 5
+    },
+    {
+      "id": "shell-lint",
+      "name": "Shell + PowerShell lint",
+      "description": "ShellCheck (bash) and PSScriptAnalyzer (PowerShell)",
+      "uses": "OseMine/workflows/.github/actions/shell-lint@v1",
+      "inputs": [
+        {
+          "id": "shell-check-severity",
+          "description": "ShellCheck severity (error, warning, info, style)",
+          "default": "warning",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "ps-script-analyzer-severity",
+          "description": "PSScriptAnalyzer severity (Error, Warning, Information)",
+          "default": "Warning",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 2
+    },
+    {
+      "id": "tauri-build",
+      "name": "Build Tauri",
+      "description": "Build a Tauri desktop application (Rust + webview frontend). Supports building the Rust binary, the full Tauri bundle (AppImage/deb/nsis/msi/dmg), and collecting release artifacts.",
+      "uses": "OseMine/workflows/.github/actions/tauri-build@v1",
+      "inputs": [
+        {
+          "id": "command",
+          "description": "Build command: bundle, build, tauri-build, or custom shell line.",
+          "default": "bundle",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "args",
+          "description": "Extra args for the tauri CLI (e.g. '--bundles appimage,deb').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "frontend",
+          "description": "Frontend dir relative to working-dir (empty = auto-detect).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "frontend-build-command",
+          "description": "Command to build the frontend (embeds UI). Empty = skip.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "frontend-dist",
+          "description": "Frontend build output dir (for beforeBuildCommand to populate).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "working-directory",
+          "description": "Directory containing tauri.conf.json / src-tauri (relative to repo root).",
+          "default": ".",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "output-dir",
+          "description": "Directory to collect build artifacts into.",
+          "default": "dist",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "artifact-globs",
+          "description": "Space-separated globs for artifacts (relative to working-dir). Empty = auto-detect.",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "install-tauri-cli",
+          "description": "Install tauri-cli via cargo (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "tauri-cli-version",
+          "description": "tauri-cli version to install (empty = latest).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "rust-target",
+          "description": "Rust target triple for cross-compile (empty = host).",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "linux-deps",
+          "description": "Extra Linux system deps for Tauri build (space-separated, e.g. 'libwebkit2gtk-4.1-dev').",
+          "default": "",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "upload",
+          "description": "Upload artifacts via actions/upload-artifact (true/false).",
+          "default": "true",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
+        },
+        {
+          "id": "artifact-name",
+          "description": "Name prefix for uploaded artifact.",
+          "default": "tauri",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        }
+      ],
+      "outputs": [],
+      "inputs_count": 14
+    }
+  ],
+  "templates": [
+    {
+      "id": "build",
+      "file": "build.yml",
+      "name": "Build",
+      "description": "Thin build workflow — copy into any project, set optional `language` and",
+      "content": "# Thin build workflow — copy into any project, set optional `language` and\n# `build` filters. Everything (language detection + dispatch to the per-language\n# build actions: rust-build, c-build, cpp-build, csharp-build, java-maven-build,\n# java-gradle-build, tauri-build, python-build, flutter-build, android-build,\n# ios-build, kmp-android-build) lives in the shared `build` action and updates\n# automatically at @v1 (or @latest for rolling updates).\n#\n# Default trigger: workflow_dispatch (Actions tab → Run workflow), optional\n# push/PR triggers. Version bump the project files, set the tag, done.\nname: Build\n\non:\n  workflow_dispatch:\n    inputs:\n      language:\n        description: >-\n          Main stack(s): auto | rust | tauri | c | cpp | csharp | maven |\n          gradle | python | flutter | android | ios | kmp (comma-separated OK)\n        required: false\n        type: string\n        default: auto\n      build:\n        description: >-\n          Comma-separated build filters: cargo, tauri, python, flutter,\n          android, ios, kmp, c, cpp, csharp, java, all\n        required: false\n        type: string\n        default: all\n  push:\n    branches: [\"main\"]\n  pull_request:\n    branches: [\"main\"]\n\njobs:\n  build:\n    name: Build artifacts\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/build@v1\n        with:\n          language: ${{ inputs.language || 'auto' }}\n          build: ${{ inputs.build || 'all' }}\n          # --- optional toolchain overrides ---\n          # rust-toolchain: stable\n          # java-version: 17\n          # java-distribution: temurin\n          # dotnet-version: \"9.0\"\n          # python-version: \"3.12\"\n          # --- signing for mobile (only when building android/kmp signed) ---\n          # android-signed: \"false\"\n          # keystore: ${{ secrets.ANDROID_KEYSTORE }}\n          # keystore-store-password: ${{ secrets.KEYSTORE_STORE_PASSWORD }}\n          # keystore-key-alias: ${{ secrets.KEYSTORE_KEY_ALIAS }}\n          # keystore-key-password: ${{ secrets.KEYSTORE_KEY_PASSWORD }}"
+    },
+    {
+      "id": "ci",
+      "file": "ci.yml",
+      "name": "CI",
+      "description": "Thin CI workflow — copy into any project. Set `language` (or a repo",
+      "content": "# Thin CI workflow — copy into any project. Set `language` (or a repo\n# variable `CI_LANGUAGE`) and done. All lint/check/test logic lives in the\n# shared `ci` action and updates automatically at @v1 (or @latest for rolling).\nname: CI\n\non:\n  push:\n    branches: [main, master]\n  pull_request:\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  ci:\n    name: CI\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/ci@v1\n        with:\n          language: ${{ vars.CI_LANGUAGE || 'auto' }}\n          # auto | rust | tauri | node | python | flutter | kmp | php | lua\n          # comma lists allowed, e.g. 'rust,node'\n          rust-toolchain: stable"
+    },
+    {
+      "id": "codeql",
+      "file": "codeql.yml",
+      "name": "CodeQL Analysis",
+      "description": "",
+      "content": "name: CodeQL Analysis\n\non:\n  push:\n    branches: [main, master]\n  pull_request:\n    branches: [main, master]\n  schedule:\n    - cron: \"17 4 * * 1\" # Monday 04:17 UTC\n\npermissions:\n  contents: read\n\njobs:\n  analyze:\n    name: Analyze (${{ matrix.language }})\n    runs-on: ubuntu-latest\n    permissions:\n      security-events: write\n    strategy:\n      fail-fast: false\n      matrix:\n        language: [\"javascript\", \"python\"]\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v7\n\n      - name: Initialize CodeQL\n        uses: github/codeql-action/init@v3\n        with:\n          languages: ${{ matrix.language }}\n\n      - name: Autobuild\n        uses: github/codeql-action/autobuild@v3\n\n      - name: Perform CodeQL Analysis\n        uses: github/codeql-action/analyze@v3\n        with:\n          category: \"/language:${{ matrix.language }}\"\n"
+    },
+    {
+      "id": "deploy-web",
+      "file": "deploy-web.yml",
+      "name": "Deploy Website",
+      "description": "",
+      "content": "name: Deploy Website\n\non:\n  push:\n    branches: [main, master]\n    paths:\n      - \"web/**\"\n      - \".github/workflows/deploy-web.yml\"\n  pull_request:\n    branches: [main, master]\n    paths:\n      - \"web/**\"\n      - \".github/workflows/deploy-web.yml\"\n\nconcurrency:\n  group: deploy-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v7\n\n      - name: Setup Node.js\n        uses: actions/setup-node@v7\n        with:\n          node-version: 22\n          cache: npm\n          cache-dependency-path: web/package-lock.json\n\n      - name: Install dependencies\n        working-directory: web\n        run: npm ci\n\n      - name: Type-check\n        working-directory: web\n        run: npx tsc --noEmit\n\n      - name: Build\n        working-directory: web\n        run: npm run build\n\n      - name: Deploy to Vercel (production)\n        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')\n        uses: amondnet/vercel-action@v25\n        with:\n          vercel-token: ${{ secrets.VERCEL_TOKEN }}\n          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}\n          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}\n          working-directory: web\n          vercel-args: \"--prod\"\n          vercel-version: \"56.4.0\"\n\n      - name: Deploy to Vercel (preview)\n        if: github.event_name == 'pull_request'\n        uses: amondnet/vercel-action@v25\n        with:\n          vercel-token: ${{ secrets.VERCEL_TOKEN }}\n          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}\n          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}\n          working-directory: web\n          vercel-version: \"56.4.0\"\n"
+    },
+    {
+      "id": "nightly",
+      "file": "nightly.yml",
+      "name": "Nightly",
+      "description": "Nightly build/smoke template — copy into any project",
+      "content": "# Nightly build/smoke template — copy into any project.\nname: Nightly\n\non:\n  schedule:\n    - cron: \"0 3 * * *\" # 03:00 UTC daily\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\njobs:\n  nightly:\n    name: Nightly checks\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/ci@v1\n        with:\n          language: ${{ vars.CI_LANGUAGE || 'auto' }}\n          rust-toolchain: stable\n\n      # Extend with your stack's build actions, e.g.:\n      # - uses: OseMine/workflows/.github/actions/flutter-build@v1\n\n      - run: echo \"Nightly checks completed\""
+    },
+    {
+      "id": "opencode-review",
+      "file": "opencode-review.yml",
+      "name": "OpenCode Code Review",
+      "description": "",
+      "content": "name: OpenCode Code Review\n\non:\n  workflow_dispatch:\n    inputs:\n      focus:\n        description: \"Focus area for the review (e.g. 'backend API', 'DSP modules')\"\n        required: false\n        type: string\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\nconcurrency:\n  group: opencode-review\n  cancel-in-progress: true\n\njobs:\n  issues-to-todo:\n    name: Sync issues to todo.md\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    permissions:\n      contents: write\n      issues: read\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Fetch open issues and write to todo.md\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |-\n          ISSUES=$(gh issue list --state open --json number,title,labels \\\n            --jq '.[] | \"\\(.number)\\t\\(.title)\\t\\([.labels[].name] | join(\",\"))\"')\n\n          if [ -z \"$ISSUES\" ]; then\n            echo \"No open issues found\"\n            exit 0\n          fi\n\n          if [ ! -f todo.md ]; then\n            echo \"# Todo\" > todo.md\n            echo \"\" >> todo.md\n          fi\n\n          echo \"$ISSUES\" > /tmp/issues.txt\n          cat > /tmp/sync-prompt.txt <<'EOF'\n          Lies todo.md und füge offene GitHub-Issues hinzu.\n\n          Offene Issues (aus der GitHub API):\n          EOF\n          cat /tmp/issues.txt >> /tmp/sync-prompt.txt\n          cat >> /tmp/sync-prompt.txt <<'EOF'\n\n          Regeln:\n          1. Lies todo.md vollständig\n          2. Füge jedes Issue als '- [ ] #<number> <title> [<labels>]' hinzu\n          3. Überspringe Issues, die bereits in todo.md existieren (gleiche Nummer)\n          4. Behalte die bestehende Struktur bei\n          5. Speichere die Änderungen in todo.md\n          6. Committen Sie die Datei\n          EOF\n\n      - name: Sync issues into todo.md (AI)\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          prompt-file: /tmp/sync-prompt.txt\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n\n      - name: Push todo.md\n        if: always()\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          if [ -n \"$(git status --porcelain todo.md)\" ]; then\n            git add todo.md\n            git commit -m \"chore: sync open issues to todo.md\"\n            git push origin HEAD\n          fi\n\n  review:\n    name: Code review\n    runs-on: ubuntu-latest\n    needs: issues-to-todo\n    timeout-minutes: 60\n    permissions:\n      contents: write\n      pull-requests: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Run OpenCode review\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        id: review\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          agent: ${{ vars.REVIEW_AGENT || 'build' }}\n          timeout-minutes: \"55\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt: |\n            Automated code review of this project.\n            Focus area: ${{ github.event.inputs.focus || 'the entire project' }}\n\n            Steps:\n            1. Read README.md, package.json/Cargo.toml, and all source code.\n               Read existing todo.md if present.\n            2. Find bugs, missing features, and improvement suggestions.\n               Verify suspicions by running tests where possible.\n            3. Write the review as a dated section in todo.md (or\n               reports/review-YYYY-MM-DD.md). Start writing early, don't\n               wait until the end.\n            4. Append new findings as a dated section at the top of todo.md.\n               Leave existing entries untouched.\n            5. Check which items in todo.md are done, mark them as completed\n               [x] and move finished items to archived-todo.md.\n            6. Review open GitHub issues. Add open issues to todos and close\n               resolved ones.\n\n            Rules:\n            - Only modify todo.md and reports/. No application code changes.\n            - No git operations (commit, push, PRs, merges, branch deletes).\n            - No GitHub API calls. No destructive actions.\n            - Every finding must include concrete file/function names.\n            - If no new findings exist, state that explicitly in the report.\n\n      - name: Create pull request with review results\n        if: always()\n        uses: peter-evans/create-pull-request@v7\n        with:\n          branch: review/opencode-${{ github.run_id }}\n          commit-message: \"chore: opencode review report\"\n          title: \"chore: opencode review report\"\n          body: |\n            Automated review report from OpenCode.\n\n            - Contains only changes to todo.md and reports/.\n            - Please review and merge.\n          delete-branch: true\n\n  review-prs:\n    name: Review & merge PRs\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    permissions:\n      contents: write\n      pull-requests: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v7\n        with:\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: List open PRs\n        id: prs\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          PRS=$(gh pr list --state open --json number,title,headRefName \\\n            --jq '.[] | \"\\(.number)\\t\\(.title)\\t\\(.headRefName)\"')\n          echo \"prs<<EOF\" >> \"$GITHUB_OUTPUT\"\n          echo \"$PRS\" >> \"$GITHUB_OUTPUT\"\n          echo \"EOF\" >> \"$GITHUB_OUTPUT\"\n          echo \"$PRS\" > /tmp/prs.txt\n\n      - name: Build PR review prompt\n        if: steps.prs.outputs.prs != ''\n        shell: bash\n        run: |\n          cat > /tmp/pr-review-prompt.txt <<'EOF'\n          For each open pull request below:\n          1. git fetch origin pull/<number>/head:pr-<number>\n          2. git checkout pr-<number>\n          3. Review the PR. Evaluate: 1) Code correctness, 2) Project conventions,\n             3) Security.\n          4. Decide: MERGE / APPROVE / REJECT.\n          5. Apply the decision with the gh CLI (GITHUB_TOKEN is set):\n             - MERGE   -> gh pr merge <number> --squash --delete-branch\n             - APPROVE -> gh pr review <number> --approve --body \"<one-line rationale>\"\n             - REJECT  -> gh pr comment <number> --body \"Automated review: <rationale>\"\n          6. git checkout main || git checkout master\n\n          Open PRs (number, title, headRef):\n          EOF\n          cat /tmp/prs.txt >> /tmp/pr-review-prompt.txt\n\n      - name: Review open PRs (AI)\n        if: steps.prs.outputs.prs != ''\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          timeout-minutes: \"55\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt-file: /tmp/pr-review-prompt.txt\n\n  branch-cleanup:\n    name: Delete stale branches\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    permissions:\n      contents: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Delete merged branches\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          git fetch --prune 2>/dev/null || true\n          MERGED=$(git branch -r --merged origin/main 2>/dev/null | grep -v 'origin/main' | grep -v 'origin/master' | sed 's|origin/||' || true)\n\n          for branch in $MERGED; do\n            case \"$branch\" in\n              main|master|develop|dev|staging|production) continue ;;\n            esac\n            echo \"Deleting merged branch: $branch\"\n            git push origin --delete \"$branch\" 2>&1 || echo \"Failed to delete $branch\"\n          done\n\n      - name: Delete stale branches (>90 days)\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          BRANCHES=$(gh api repos/{owner}/{repo}/branches --paginate --jq '.[].name' 2>/dev/null || true)\n          CUTOFF=$(date -d \"90 days ago\" --utc +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -v-90d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)\n\n          for branch in $BRANCHES; do\n            case \"$branch\" in\n              main|master|develop|dev|staging|production) continue ;;\n            esac\n            LAST_COMMIT=$(gh api \"repos/{owner}/{repo}/branches/$branch\" --jq '.commit.commit.author.date' 2>/dev/null || true)\n            if [ -n \"$LAST_COMMIT\" ] && [ -n \"$CUTOFF\" ] && [[ \"$LAST_COMMIT\" < \"$CUTOFF\" ]]; then\n              echo \"Deleting stale branch: $branch (last: $LAST_COMMIT)\"\n              git push origin --delete \"$branch\" 2>&1 || echo \"Failed to delete $branch\"\n            fi\n          done\n"
+    },
+    {
+      "id": "opencode-todo-issues",
+      "file": "opencode-todo-issues.yml",
+      "name": "OpenCode Todo-to-Issues",
+      "description": "",
+      "content": "name: OpenCode Todo-to-Issues\n\non:\n  workflow_dispatch:\n    inputs:\n      focus:\n        description: \"Optional: only process this section/title from todo.md (substring match)\"\n        required: false\n        type: string\n  schedule:\n    - cron: \"0 6 * * 3\" # Wednesday 06:00 UTC\n\nconcurrency:\n  group: opencode-todo-issues\n  cancel-in-progress: true\n\npermissions:\n  contents: write\n  issues: write\n\njobs:\n  create-issues:\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Run opencode to create issues from todo.md\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          timeout-minutes: \"18\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt: |\n            Task: Create GitHub issues from open tasks in todo.md.\n\n            Steps:\n            1. Check if todo.md exists. If not, exit immediately with a short\n               message (\"No todo.md found\") and create NO issues.\n            2. Read todo.md fully. Collect all open tasks (marked with \"- [ ]\"\n               checkboxes) and any items noted as \"Tracking open GitHub issues\".\n               Focus area (optional): ${{ github.event.inputs.focus || 'all open items' }}\n            3. Group related items into logical issues (one issue per logical\n               task, not one per line).\n            4. For each group, create exactly ONE GitHub issue with:\n               - Descriptive title (short, clear)\n               - Body containing: context, affected files/functions (with line\n                 numbers from todo.md), acceptance criteria, and the todo.md text.\n            5. Assign appropriate labels using `gh issue create --label`:\n               - Bug/security issue -> `bug` (+ `security` for security findings)\n               - New feature -> `enhancement`\n               - Performance -> `perf`\n               - UX/Design -> `ux`\n               - Documentation -> `documentation`\n               - CI/Workflows/Build -> `ci`\n               Create missing labels first with `gh label create`. If label\n               creation fails (e.g. 403), create the issue with the best\n               matching existing label and note this in the summary.\n            6. Use the GitHub API via $GITHUB_TOKEN (the gh CLI is\n               authenticated as GitHub Actions).\n            7. Skip duplicates -- list existing issues first and compare titles.\n\n            IMPORTANT:\n            - Do NOT modify any files, commit anything, or create a pull request.\n            - Every created issue MUST have at least one matching label.\n            - Respond with a summary of created issues (number, title, label)\n              and skipped duplicates.\n"
+    },
+    {
+      "id": "opencode",
+      "file": "opencode.yml",
+      "name": "OpenCode Automation",
+      "description": "Thin OpenCode automation — copy into any project, replace the PROMPT,",
+      "content": "# Thin OpenCode automation — copy into any project, replace the PROMPT,\n# done. Git identity, model fallback chain, and the runner logic live in the\n# shared `opencode` action and update automatically at @v1 (or @latest).\n#\n# Triggers as needed: workflow_dispatch, schedule, issue_comment, issues.\nname: OpenCode Automation\n\non:\n  workflow_dispatch:\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\npermissions:\n  contents: write\n  issues: write\n  pull-requests: write\n\njobs:\n  opencode:\n    name: OpenCode task\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          prompt: |\n            REPLACE_WITH_PROJECT_PROMPT\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}\n          timeout-minutes: \"50\"\n\n      - name: Commit changes (if any)\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          if [ -n \"$(git status --porcelain)\" ]; then\n            git add -A\n            git commit -m \"chore: opencode automation [skip ci]\"\n            git push origin HEAD\n          else\n            echo \"no changes to commit\"\n          fi"
+    },
+    {
+      "id": "release",
+      "file": "release.yml",
+      "name": "Release",
+      "description": "Thin release workflow — copy into any project, set `language` + optional",
+      "content": "# Thin release workflow — copy into any project, set `language` + optional\n# `build` flags. Everything (meta/semver, builds, security gate, AI release\n# notes, release + SHA256SUMS) lives in the shared `release-all` action and\n# updates automatically at @v1 (or @latest for rolling updates).\n#\n# Primary trigger: workflow_dispatch (Actions tab → Run workflow).\n# Version is auto-detected from pubspec.yaml / Cargo.toml / package.json, or\n# override via the `version` input. Tag push (`v*`) remains supported as a\n# secondary trigger.\nname: Release\n\non:\n  workflow_dispatch:\n    inputs:\n      version:\n        description: \"Version to release (e.g. 1.2.3). Empty = auto-detect from project files\"\n        required: false\n        type: string\n      prerelease:\n        description: \"Mark as prerelease\"\n        required: false\n        type: boolean\n        default: false\n      draft:\n        description: \"Create as draft\"\n        required: false\n        type: boolean\n        default: false\n      build:\n        description: \"Comma-separated build flags: cargo, tauri, plugin, installer, python, android, ios, flutter, c, cpp, csharp, java, all\"\n        required: false\n        type: string\n        default: all\n  push:\n    tags: [\"v*\"]\n\npermissions:\n  contents: write\n  id-token: write\n\njobs:\n  release:\n    name: Release\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/release-all@v1\n        with:\n          language: auto            # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle\n          build: ${{ github.event.inputs.build || 'all' }}\n          release-tag: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || '' }}\n          min-rating: \"7\"           # security gate 0-10; 0 disables\n          draft: ${{ github.event.inputs.draft || 'false' }}\n          prerelease: ${{ github.event.inputs.prerelease || 'false' }}\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}"
+    },
+    {
+      "id": "security",
+      "file": "security.yml",
+      "name": "Security",
+      "description": "Thin security gate — copy into any project, wire OpenAI/Puter/VirusTotal",
+      "content": "# Thin security gate — copy into any project, wire OpenAI/Puter/VirusTotal\n# secrets, done. Trivy + cargo/npm audit + PHP hint + VirusTotal scan + AI\n# review, rating 0-10, fails the run below min-rating.\nname: Security\n\non:\n  push:\n  pull_request:\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\npermissions:\n  contents: read\n\njobs:\n  security:\n    name: Security gate\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/security@v1\n        with:\n          min-rating: \"7\"\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}\n          virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }} # optional (VIRUSTOTAL badge)\n          virustotal-files: \"target/release/*.exe dist/*.exe *.exe\" # space-separated globs\n          test-cmd: \"cargo test\"                                 # optional verification"
+    }
+  ]
+}
