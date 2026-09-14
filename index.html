@@ -17,6 +17,12 @@
       try { saved = localStorage.getItem("theme"); } catch (e) {}
       var t = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
       document.documentElement.dataset.theme = t;
+
+      /* YAML preview open state (collapsed on first load unless a wide screen or a saved pref) */
+      var yamlSaved = null;
+      try { yamlSaved = localStorage.getItem("yaml-open"); } catch (e) {}
+      var yamlOpen = yamlSaved != null ? yamlSaved === "1" : window.innerWidth >= 1200;
+      document.documentElement.dataset.yaml = yamlOpen ? "1" : "0";
     })();
   </script>
 </head>
@@ -67,21 +73,8 @@
   </header>
 
   <main>
-    <!-- ── Left: action catalog ──────────────────────────────────────── -->
-    <section class="catalog" id="catalog">
-      <div class="panel-head">
-        <h2>Actions</h2>
-        <input id="search" type="search" placeholder="Search actions… (e.g. clippy, dmg, jar)" autocomplete="off" />
-      </div>
-      <div id="action-list" class="action-list"></div>
-      <p class="hint">
-        Catalog is generated from <code>.github/actions/*/action.yml</code>.
-        <a href="https://raw.githubusercontent.com/OseMine/workflows/main/catalog.json" target="_blank" rel="noopener">catalog.json</a>
-      </p>
-    </section>
-
-    <!-- ── Middle: step composition ──────────────────────────────────── -->
-    <section class="compose">
+    <!-- ── Left: workbench (settings + step canvas) ──────────────────── -->
+    <section class="workbench">
       <div class="panel-head">
         <h2>Workflow</h2>
         <div class="presets">
@@ -126,29 +119,57 @@
 
       <div class="steps" id="steps">
         <div class="empty" id="steps-empty">
-          No steps yet — click <b>+ add</b> on an action in the left panel.
-          <code>actions/checkout</code> is always prepended automatically.
+          <div>No steps yet — <code>actions/checkout</code> is always prepended automatically.</div>
+          <button type="button" class="add-step js-add">＋ Add first step</button>
         </div>
       </div>
 
-      <div class="compose-foot">
-        <button id="btn-clear" class="ghost">Clear all</button>
+      <div class="steps-foot">
+        <button id="btn-add" type="button" class="add-step js-add">＋ Add Step</button>
+        <button id="btn-clear" type="button" class="ghost">Clear all</button>
       </div>
     </section>
 
-    <!-- ── Right: generated YAML ─────────────────────────────────────── -->
-    <section class="output">
-      <div class="panel-head">
+    <!-- ── Right: generated YAML (collapsible) ───────────────────────── -->
+    <section class="output preview" id="preview">
+      <div class="panel-head preview-head">
         <h2>Generated workflow</h2>
         <div class="output-actions">
-          <button id="btn-copy" class="primary">Copy YAML</button>
-          <button id="btn-download" class="ghost">Download .yml</button>
+          <button id="yaml-collapse" type="button" class="icon-btn" title="Hide YAML preview (focus on building)" aria-label="Hide YAML preview">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+          <button id="btn-copy" type="button" class="primary">Copy YAML</button>
+          <button id="btn-download" type="button" class="ghost">Download .yml</button>
         </div>
       </div>
       <p class="hint">Paste into <code>.github/workflows/&lt;name&gt;.yml</code> and commit.</p>
       <pre id="yaml" class="yaml"></pre>
     </section>
+
+    <button id="yaml-show" type="button" class="yaml-fab">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      View YAML
+    </button>
   </main>
+
+  <!-- ── Action palette (opens from any "+ Add Step") ────────────────── -->
+  <div id="palette" class="drawer" hidden>
+    <div class="drawer-backdrop" id="palette-backdrop"></div>
+    <div class="palette" role="dialog" aria-modal="true" aria-label="Add an action">
+      <div class="palette-head">
+        <h2>Add an action</h2>
+        <button id="palette-close" type="button" class="icon-btn" title="Close" aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+        </button>
+      </div>
+      <input id="search" type="search" placeholder="Search actions… (e.g. clippy, dmg, jar)" autocomplete="off" />
+      <div id="action-list" class="action-list" role="listbox" aria-label="Available actions"></div>
+      <p class="hint">
+        Catalog: <code>.github/actions/*/action.yml</code> →
+        <a href="https://raw.githubusercontent.com/OseMine/workflows/main/catalog.json" target="_blank" rel="noopener">catalog.json</a>
+      </p>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>

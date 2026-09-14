@@ -12,6 +12,10 @@ Point-and-click GitHub workflow composer for the
 - One-click presets: CI, Build, Release, Security.
 - Monochrome (black & white) Apple-inspired look with automatic **dark/light
   mode** — follows your system, or toggle it manually via the header button.
+- Two-pane layout: a wide **workbench** (workflow settings on top, step canvas
+  below) plus a **collapsible YAML preview**. Actions live in a searchable
+  **+ Add Step palette**, so the canvas keeps the room. Reopen the preview with
+  the floating **View YAML** pill.
 
 ## Autoupdating
 
@@ -47,8 +51,8 @@ python3 -m http.server 8080
 
 ```
 web/
-├── index.html     # layout
-├── style.css      # monochrome theme — semantic tokens, light + dark
+├── index.html     # layout — workbench + collapsible YAML preview + action palette
+├── style.css      # monochrome theme — semantic tokens, light + dark, 2-column grid
 ├── app.js         # catalog loading + step builder + YAML generation
 ├── .nojekyll      # tell Pages not to run Jekyll
 └── README.md      # this file

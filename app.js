@@ -85,8 +85,9 @@ function renderCatalog() {
         <span class="a-count">${a.inputs_count != null ? a.inputs_count : (a.inputs || []).length} input${(a.inputs || []).length === 1 ? "" : "s"}</span>
         <button class="a-add">+ add</button>
       </div>`;
-    card.querySelector(".a-add").addEventListener("click", () => addStep(a));
-    card.addEventListener("click", (e) => { if (!e.target.closest("button")) addStep(a); });
+    const pick = () => { addStep(a); closePalette(); };
+    card.querySelector(".a-add").addEventListener("click", pick);
+    card.addEventListener("click", (e) => { if (!e.target.closest("button")) pick(); });
     list.appendChild(card);
   });
 }
@@ -131,8 +132,8 @@ function renderSteps() {
   wrap.innerHTML = "";
   if (!state.steps.length) {
     const empty = el("div", "empty");
-    empty.innerHTML = "No steps yet — click <b>+ add</b> on an action in the left panel. " +
-      "<code>actions/checkout</code> is always prepended automatically.";
+    empty.innerHTML = "<div>No steps yet — <code>actions/checkout</code> is always prepended automatically.</div>" +
+      "<button type=\"button\" class=\"add-step js-add\">＋ Add first step</button>";
     wrap.appendChild(empty);
     return;
   }
@@ -403,6 +404,27 @@ function downloadYaml() {
   toast("Downloaded " + a.download);
 }
 
+/* ── action palette ─────────────────────────────────────────────── */
+function openPalette() {
+  $("#palette").hidden = false;
+  $("#search").value = "";
+  renderCatalog();
+  $("#search").focus();
+}
+function closePalette() {
+  $("#palette").hidden = true;
+}
+
+/* ── YAML preview drawer (collapsible) ──────────────────────────── */
+function setYamlOpen(open) {
+  document.documentElement.dataset.yaml = open ? "1" : "0";
+  try { localStorage.setItem("yaml-open", open ? "1" : "0"); } catch (e) {}
+}
+function initYamlPane() {
+  $("#yaml-collapse").addEventListener("click", () => setYamlOpen(false));
+  $("#yaml-show").addEventListener("click", () => setYamlOpen(true));
+}
+
 /* ── theme toggle ────────────────────────────────────────────────── */
 function wireTheme() {
   const btn = $("#theme");
@@ -445,8 +467,18 @@ function wireEvents() {
   });
   document.querySelectorAll("[data-preset]").forEach((b) =>
     b.addEventListener("click", () => applyPreset(b.dataset.preset)));
+
+  $("#palette-close").addEventListener("click", closePalette);
+  $("#palette-backdrop").addEventListener("click", closePalette);
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".js-add")) openPalette();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#palette").hidden) closePalette();
+  });
 }
 
+initYamlPane();
 wireTheme();
 wireEvents();
 renderYaml();
