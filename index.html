@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workflow Builder — OseMine/workflows</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ───────────────────────────────────────────────────────── -->
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <span class="logo">⚙️</span>
+        <div>
+          <h1>Workflow Builder</h1>
+          <p class="sub">
+            Compose GitHub workflows from
+            <a href="https://github.com/OseMine/workflows" target="_blank" rel="noopener">OseMine/workflows</a>
+            actions
+          </p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div id="autoupdate" class="autoupdate" title="Action catalog comes from catalog.json on @main — new actions appear automatically, no redeploy.">
+          <span class="dot"></span>
+          <span id="autoupdate-text">loaded from <b>@main</b>…</span>
+        </div>
+        <select id="ref" class="reftag" title="Which version of the actions to reference in the generated workflow" aria-label="Action version ref">
+          <option value="v1">@v1 — stable</option>
+          <option value="latest">@latest — rolling</option>
+          <option value="main">@main — branch head</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Left: action catalog ──────────────────────────────────────── -->
+    <section class="catalog" id="catalog">
+      <div class="panel-head">
+        <h2>Actions</h2>
+        <input id="search" type="search" placeholder="Search actions… (e.g. clippy, dmg, jar)" autocomplete="off" />
+      </div>
+      <div id="action-list" class="action-list"></div>
+      <p class="hint">
+        Catalog is generated from <code>.github/actions/*/action.yml</code>.
+        <a href="https://raw.githubusercontent.com/OseMine/workflows/main/catalog.json" target="_blank" rel="noopener">catalog.json</a>
+      </p>
+    </section>
+
+    <!-- ── Middle: step composition ──────────────────────────────────── -->
+    <section class="compose">
+      <div class="panel-head">
+        <h2>Workflow</h2>
+        <div class="presets">
+          <span>Presets:</span>
+          <button class="chip" data-preset="ci">CI</button>
+          <button class="chip" data-preset="build">Build</button>
+          <button class="chip" data-preset="release">Release</button>
+          <button class="chip" data-preset="security">Security</button>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <label>Name
+          <input id="wf-name" value="CI" />
+        </label>
+        <label>Trigger
+          <select id="wf-trigger">
+            <option value="workflow_dispatch">workflow_dispatch</option>
+            <option value="push">push (tag)</option>
+            <option value="push_branch">push (branch)</option>
+            <option value="pull_request">pull_request</option>
+            <option value="schedule">schedule</option>
+          </select>
+        </label>
+        <label id="lbl-branch">Branch / tag
+          <input id="wf-branch" value="v*" />
+        </label>
+        <label id="lbl-cron" class="hidden">Cron
+          <input id="wf-cron" placeholder="0 3 * * *" value="30 2 * * *" />
+        </label>
+        <label>Runs on
+          <select id="wf-runs-on">
+            <option value="ubuntu-latest">ubuntu-latest</option>
+            <option value="macos-latest">macos-latest</option>
+            <option value="windows-latest">windows-latest</option>
+            <option value="ubuntu-22.04">ubuntu-22.04</option>
+            <option value="macos-14">macos-14</option>
+            <option value="windows-2022">windows-2022</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="steps" id="steps">
+        <div class="empty" id="steps-empty">
+          No steps yet — click <b>+ add</b> on an action in the left panel.
+          <code>actions/checkout</code> is always prepended automatically.
+        </div>
+      </div>
+
+      <div class="compose-foot">
+        <button id="btn-clear" class="ghost">Clear all</button>
+      </div>
+    </section>
+
+    <!-- ── Right: generated YAML ─────────────────────────────────────── -->
+    <section class="output">
+      <div class="panel-head">
+        <h2>Generated workflow</h2>
+        <div class="output-actions">
+          <button id="btn-copy" class="primary">Copy YAML</button>
+          <button id="btn-download" class="ghost">Download .yml</button>
+        </div>
+      </div>
+      <p class="hint">Paste into <code>.github/workflows/&lt;name&gt;.yml</code> and commit.</p>
+      <pre id="yaml" class="yaml"></pre>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
