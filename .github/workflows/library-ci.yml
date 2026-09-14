@@ -53,8 +53,6 @@ jobs:
                   if s.get("shell") == "bash" and s.get("run"):
                       # strip GITHUB_* template expressions; they are runtime-only
                       code = re.sub(r"\$\{\{[^}]*\}\}", "x", s["run"])
-                      if "timeout " in code:  # sanitize control chars for -n only
-                          code = re.sub(r"\$(\([^)]+\))", "cmd", code)
                       p = subprocess.run(["bash", "-n"], input=code, text=True,
                                          capture_output=True)
                       if p.returncode != 0:
