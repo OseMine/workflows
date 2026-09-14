@@ -10,6 +10,8 @@ Point-and-click GitHub workflow composer for the
 - Get a ready-to-commit workflow `.yml` with `actions/checkout`, triggers,
   permissions, and your chosen steps — copy or download it.
 - One-click presets: CI, Build, Release, Security.
+- Monochrome (black & white) Apple-inspired look with automatic **dark/light
+  mode** — follows your system, or toggle it manually via the header button.
 
 ## Autoupdating
 
@@ -46,7 +48,7 @@ python3 -m http.server 8080
 ```
 web/
 ├── index.html     # layout
-├── style.css      # dark GitHub-ish theme
+├── style.css      # monochrome theme — semantic tokens, light + dark
 ├── app.js         # catalog loading + step builder + YAML generation
 ├── .nojekyll      # tell Pages not to run Jekyll
 └── README.md      # this file

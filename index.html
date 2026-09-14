@@ -3,9 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
   <title>Workflow Builder — OseMine/workflows</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23000'/><g fill='%23fff'><circle cx='9' cy='16' r='3.5'/><circle cx='16' cy='8' r='3.5'/><circle cx='23' cy='16' r='3.5'/></g><path d='M12.5 16V8M19.5 16V8' stroke='%23fff' stroke-width='2.5'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script>
+    /* set theme before paint so there is no flash of the wrong mode */
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem("theme"); } catch (e) {}
+      var t = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
 </head>
 <body>
 
@@ -13,7 +26,16 @@
   <header>
     <div class="header-inner">
       <div class="brand">
-        <span class="logo">⚙️</span>
+        <span class="logo" aria-hidden="true">
+          <svg class="logo-mark" viewBox="0 0 24 24">
+            <g fill="currentColor">
+              <circle cx="6.5" cy="12" r="2" />
+              <circle cx="12" cy="5.5" r="2" />
+              <circle cx="17.5" cy="12" r="2" />
+            </g>
+            <path d="M8.5 12V6.5M15.5 6.5V12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" />
+          </svg>
+        </span>
         <div>
           <h1>Workflow Builder</h1>
           <p class="sub">
@@ -28,11 +50,18 @@
           <span class="dot"></span>
           <span id="autoupdate-text">loaded from <b>@main</b>…</span>
         </div>
-        <select id="ref" class="reftag" title="Which version of the actions to reference in the generated workflow" aria-label="Action version ref">
-          <option value="v1">@v1 — stable</option>
-          <option value="latest">@latest — rolling</option>
-          <option value="main">@main — branch head</option>
-        </select>
+        <span class="select-wrap">
+          <select id="ref" class="reftag" title="Which version of the actions to reference in the generated workflow" aria-label="Action version ref">
+            <option value="v1">@v1 — stable</option>
+            <option value="latest">@latest — rolling</option>
+            <option value="main">@main — branch head</option>
+          </select>
+          <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </span>
+        <button id="theme" class="icon-btn" type="button" title="Toggle dark / light mode" aria-label="Toggle dark / light mode">
+          <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+          <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 14.6A8.7 8.7 0 0 1 9.4 3.4 8.7 8.7 0 1 0 20.6 14.6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /></svg>
+        </button>
       </div>
     </div>
   </header>
@@ -121,7 +150,7 @@
     </section>
   </main>
 
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
 </html>

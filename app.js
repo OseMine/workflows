@@ -165,7 +165,7 @@ function renderSteps() {
     nameInput.style.fontWeight = 600;
     nameInput.style.background = "transparent";
     nameInput.style.border = "1px solid transparent";
-    nameInput.style.color = "var(--text)";
+    nameInput.style.color = "var(--ink)";
     nameInput.style.padding = "2px 4px";
     nameInput.addEventListener("change", () => { s.label = nameInput.value; renderYaml(); });
     head.appendChild(nameInput);
@@ -403,6 +403,20 @@ function downloadYaml() {
   toast("Downloaded " + a.download);
 }
 
+/* ── theme toggle ────────────────────────────────────────────────── */
+function wireTheme() {
+  const btn = $("#theme");
+  const root = document.documentElement;
+  const setPressed = (t) => btn.setAttribute("aria-pressed", String(t === "dark"));
+  setPressed(root.dataset.theme);
+  btn.addEventListener("click", () => {
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    root.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    setPressed(next);
+  });
+}
+
 /* ── wire up events ──────────────────────────────────────────────── */
 function wireEvents() {
   $("#search").addEventListener("input", renderCatalog);
@@ -433,6 +447,7 @@ function wireEvents() {
     b.addEventListener("click", () => applyPreset(b.dataset.preset)));
 }
 
+wireTheme();
 wireEvents();
 renderYaml();
 loadCatalog();
