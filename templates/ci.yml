@@ -1,6 +1,6 @@
 # Thin CI workflow — copy into any project. Set `language` (or a repo
 # variable `CI_LANGUAGE`) and done. All lint/check/test logic lives in the
-# shared `ci` action and updates automatically at @main.
+# shared `ci` action and updates automatically at @v1 (or @latest for rolling).
 name: CI
 
 on:
@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: OseMine/workflows/.github/actions/ci@main
+      - uses: OseMine/workflows/.github/actions/ci@v1
         with:
           language: ${{ vars.CI_LANGUAGE || 'auto' }}
           # auto | rust | tauri | node | python | flutter | kmp | php | lua

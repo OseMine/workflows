@@ -72,7 +72,7 @@ jobs:
           EOF
 
       - name: Sync issues into todo.md (AI)
-        uses: OseMine/workflows/.github/actions/opencode@main
+        uses: OseMine/workflows/.github/actions/opencode@v1
         with:
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
           model: ${{ vars.AI_MODEL || 'auto-free' }}
@@ -117,7 +117,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run OpenCode review
-        uses: OseMine/workflows/.github/actions/opencode@main
+        uses: OseMine/workflows/.github/actions/opencode@v1
         id: review
         with:
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
@@ -224,7 +224,7 @@ jobs:
 
       - name: Review open PRs (AI)
         if: steps.prs.outputs.prs != ''
-        uses: OseMine/workflows/.github/actions/opencode@main
+        uses: OseMine/workflows/.github/actions/opencode@v1
         with:
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
           model: ${{ vars.AI_MODEL || 'auto-free' }}

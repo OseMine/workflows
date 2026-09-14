@@ -18,12 +18,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: OseMine/workflows/.github/actions/ci@main
+      - uses: OseMine/workflows/.github/actions/ci@v1
         with:
           language: ${{ vars.CI_LANGUAGE || 'auto' }}
           rust-toolchain: stable
 
       # Extend with your stack's build actions, e.g.:
-      # - uses: OseMine/workflows/.github/actions/flutter-build@main
+      # - uses: OseMine/workflows/.github/actions/flutter-build@v1
 
       - run: echo "Nightly checks completed"

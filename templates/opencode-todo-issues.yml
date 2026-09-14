@@ -35,7 +35,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run opencode to create issues from todo.md
-        uses: OseMine/workflows/.github/actions/opencode@main
+        uses: OseMine/workflows/.github/actions/opencode@v1
         with:
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
           model: ${{ vars.AI_MODEL || 'auto-free' }}

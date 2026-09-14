@@ -232,7 +232,7 @@ runs:
 
     - name: Run security gate
       if: ${{ inputs.mode == 'full' && inputs.security == 'true' }}
-      uses: OseMine/workflows/.github/actions/security@main
+      uses: OseMine/workflows/.github/actions/security@v1
       with:
         min-rating: ${{ inputs.min-rating }}
         provider: ${{ inputs.provider }}
@@ -260,49 +260,49 @@ runs:
 
     - name: Python package (sdist + wheel)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'python') }}
-      uses: OseMine/workflows/.github/actions/python-build@main
+      uses: OseMine/workflows/.github/actions/python-build@v1
 
     - name: Flutter APK + AAB + IPA
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'flutter') }}
-      uses: OseMine/workflows/.github/actions/flutter-build@main
+      uses: OseMine/workflows/.github/actions/flutter-build@v1
 
     - name: Android APK (native)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'android') }}
-      uses: OseMine/workflows/.github/actions/android-build@main
+      uses: OseMine/workflows/.github/actions/android-build@v1
 
     - name: iOS unsigned IPA (native)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'ios') && inputs.ios-scheme != '' }}
-      uses: OseMine/workflows/.github/actions/ios-build@main
+      uses: OseMine/workflows/.github/actions/ios-build@v1
       with:
         scheme: ${{ inputs.ios-scheme }}
 
     - name: KMP Android build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'android') && contains(steps.lang.outputs.language, 'kmp') }}
-      uses: OseMine/workflows/.github/actions/kmp-android-build@main
+      uses: OseMine/workflows/.github/actions/kmp-android-build@v1
 
     - name: Tauri desktop app build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'tauri') }}
-      uses: OseMine/workflows/.github/actions/tauri-build@main
+      uses: OseMine/workflows/.github/actions/tauri-build@v1
 
     - name: C build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'c') && contains(steps.lang.outputs.language, 'c-cpp') }}
-      uses: OseMine/workflows/.github/actions/c-build@main
+      uses: OseMine/workflows/.github/actions/c-build@v1
 
     - name: C++ build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'cpp') && contains(steps.lang.outputs.language, 'c-cpp') }}
-      uses: OseMine/workflows/.github/actions/cpp-build@main
+      uses: OseMine/workflows/.github/actions/cpp-build@v1
 
     - name: C# / .NET build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'csharp') && contains(steps.lang.outputs.language, 'csharp') }}
-      uses: OseMine/workflows/.github/actions/csharp-build@main
+      uses: OseMine/workflows/.github/actions/csharp-build@v1
 
     - name: Java build (Maven)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'java') && contains(steps.lang.outputs.language, 'maven') }}
-      uses: OseMine/workflows/.github/actions/java-maven-build@main
+      uses: OseMine/workflows/.github/actions/java-maven-build@v1
 
     - name: Java build (Gradle)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'java') && contains(steps.lang.outputs.language, 'gradle') }}
-      uses: OseMine/workflows/.github/actions/java-gradle-build@main
+      uses: OseMine/workflows/.github/actions/java-gradle-build@v1
 
     - name: Collect artifacts
       shell: bash
@@ -441,7 +441,7 @@ runs:
         echo "path=$NOTES" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub release
-      uses: OseMine/workflows/.github/actions/github-release@main
+      uses: OseMine/workflows/.github/actions/github-release@v1
       with:
         github-token: ${{ inputs.github-token || github.token }}
         tag: ${{ steps.meta.outputs.release_tag }}

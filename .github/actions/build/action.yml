@@ -254,7 +254,7 @@ runs:
     # ---------------- Rust / Tauri ----------------
     - name: Build Rust
       if: ${{ steps.detect.outputs.has-rust == 'true' && contains(steps.meta.outputs.build_flags, 'cargo') }}
-      uses: OseMine/workflows/.github/actions/rust-build@main
+      uses: OseMine/workflows/.github/actions/rust-build@v1
       with:
         toolchain: ${{ inputs.rust-toolchain }}
         working-directory: ${{ inputs.working-directory }}
@@ -264,7 +264,7 @@ runs:
 
     - name: Build Tauri
       if: ${{ steps.detect.outputs.has-tauri == 'true' && contains(steps.meta.outputs.build_flags, 'tauri') }}
-      uses: OseMine/workflows/.github/actions/tauri-build@main
+      uses: OseMine/workflows/.github/actions/tauri-build@v1
       with:
         working-directory: ${{ inputs.working-directory }}
         output-dir: ${{ inputs.output-dir }}
@@ -274,7 +274,7 @@ runs:
     # ---------------- C / C++ ----------------
     - name: Build C
       if: ${{ steps.detect.outputs.has-c == 'true' && contains(steps.meta.outputs.build_flags, 'c') }}
-      uses: OseMine/workflows/.github/actions/c-build@main
+      uses: OseMine/workflows/.github/actions/c-build@v1
       with:
         working-directory: ${{ inputs.working-directory }}
         output-dir: ${{ inputs.output-dir }}
@@ -283,7 +283,7 @@ runs:
 
     - name: Build C++
       if: ${{ steps.detect.outputs.has-cpp == 'true' && contains(steps.meta.outputs.build_flags, 'cpp') }}
-      uses: OseMine/workflows/.github/actions/cpp-build@main
+      uses: OseMine/workflows/.github/actions/cpp-build@v1
       with:
         working-directory: ${{ inputs.working-directory }}
         output-dir: ${{ inputs.output-dir }}
@@ -293,7 +293,7 @@ runs:
     # ---------------- C# / .NET ----------------
     - name: Build C# / .NET
       if: ${{ steps.detect.outputs.has-csharp == 'true' && contains(steps.meta.outputs.build_flags, 'csharp') }}
-      uses: OseMine/workflows/.github/actions/csharp-build@main
+      uses: OseMine/workflows/.github/actions/csharp-build@v1
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
         working-directory: ${{ inputs.working-directory }}
@@ -304,7 +304,7 @@ runs:
     # ---------------- Java ----------------
     - name: Build Java (Maven)
       if: ${{ steps.detect.outputs.has-maven == 'true' && contains(steps.meta.outputs.build_flags, 'java') }}
-      uses: OseMine/workflows/.github/actions/java-maven-build@main
+      uses: OseMine/workflows/.github/actions/java-maven-build@v1
       with:
         java-version: ${{ inputs.java-version }}
         java-distribution: ${{ inputs.java-distribution }}
@@ -315,7 +315,7 @@ runs:
 
     - name: Build Java (Gradle)
       if: ${{ steps.detect.outputs.has-gradle == 'true' && contains(steps.meta.outputs.build_flags, 'java') }}
-      uses: OseMine/workflows/.github/actions/java-gradle-build@main
+      uses: OseMine/workflows/.github/actions/java-gradle-build@v1
       with:
         gradle-cache: ${{ inputs.gradle-cache }}
         java-version: ${{ inputs.java-version }}
@@ -328,7 +328,7 @@ runs:
     # ---------------- Python ----------------
     - name: Build Python (sdist + wheel)
       if: ${{ steps.detect.outputs.has-python == 'true' && contains(steps.meta.outputs.build_flags, 'python') }}
-      uses: OseMine/workflows/.github/actions/python-build@main
+      uses: OseMine/workflows/.github/actions/python-build@v1
       with:
         python-version: ${{ inputs.python-version }}
         working-directory: ${{ inputs.working-directory }}
@@ -336,14 +336,14 @@ runs:
     # ---------------- Flutter ----------------
     - name: Build Flutter (APK + AAB + IPA)
       if: ${{ steps.detect.outputs.has-flutter == 'true' && contains(steps.meta.outputs.build_flags, 'flutter') }}
-      uses: OseMine/workflows/.github/actions/flutter-build@main
+      uses: OseMine/workflows/.github/actions/flutter-build@v1
       with:
         java-version: ${{ inputs.java-version }}
 
     # ---------------- Mobile native ----------------
     - name: Build Android (native)
       if: ${{ steps.detect.outputs.has-android == 'true' && contains(steps.meta.outputs.build_flags, 'android') }}
-      uses: OseMine/workflows/.github/actions/android-build@main
+      uses: OseMine/workflows/.github/actions/android-build@v1
       with:
         signed: ${{ inputs.android-signed }}
         keystore: ${{ inputs.keystore }}
@@ -355,14 +355,14 @@ runs:
 
     - name: Build iOS (native)
       if: ${{ steps.detect.outputs.has-ios == 'true' && contains(steps.meta.outputs.build_flags, 'ios') }}
-      uses: OseMine/workflows/.github/actions/ios-build@main
+      uses: OseMine/workflows/.github/actions/ios-build@v1
       with:
         scheme: ${{ inputs.ios-scheme }}
         artifact-name: ${{ inputs.artifact-name }}-ios
 
     - name: Build KMP (Android)
       if: ${{ steps.detect.outputs.has-kmp == 'true' && contains(steps.meta.outputs.build_flags, 'kmp') }}
-      uses: OseMine/workflows/.github/actions/kmp-android-build@main
+      uses: OseMine/workflows/.github/actions/kmp-android-build@v1
       with:
         signed: ${{ inputs.android-signed }}
         keystore: ${{ inputs.keystore }}

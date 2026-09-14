@@ -45,7 +45,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: OseMine/workflows/.github/actions/setup-rust@main
+    - uses: OseMine/workflows/.github/actions/setup-rust@v1
       if: inputs.toolchain != ''
       with:
         rust-toolchain: ${{ inputs.toolchain }}

@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: OseMine/workflows/.github/actions/security@main
+      - uses: OseMine/workflows/.github/actions/security@v1
         with:
           min-rating: "7"
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama

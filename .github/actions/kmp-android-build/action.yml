@@ -33,7 +33,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: OseMine/workflows/.github/actions/kmp-setup@main
+    - uses: OseMine/workflows/.github/actions/kmp-setup@v1
       with:
         java-version: ${{ inputs.java-version }}
         gradle-version: ${{ inputs.gradle-version }}

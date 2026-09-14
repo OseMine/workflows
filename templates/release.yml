@@ -1,7 +1,7 @@
 # Thin release workflow — copy into any project, set `language` + optional
 # `build` flags. Everything (meta/semver, builds, security gate, AI release
 # notes, release + SHA256SUMS) lives in the shared `release-all` action and
-# updates automatically at @main.
+# updates automatically at @v1 (or @latest for rolling updates).
 #
 # Primary trigger: workflow_dispatch (Actions tab → Run workflow).
 # Version is auto-detected from pubspec.yaml / Cargo.toml / package.json, or
@@ -47,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: OseMine/workflows/.github/actions/release-all@main
+      - uses: OseMine/workflows/.github/actions/release-all@v1
         with:
           language: auto            # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle
           build: ${{ github.event.inputs.build || 'all' }}
