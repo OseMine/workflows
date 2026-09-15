@@ -63,7 +63,7 @@ def scan_actions():
                 "id": name,
                 "name": data.get("name") or name,
                 "description": re.sub(r"\s+", " ", (data.get("description") or "").strip()),
-                "uses": f"OseMine/workflows/.github/actions/{name}@v1",
+                "uses": f"OseMine/workflows/.github/actions/{name}@v2",
                 "inputs": inputs,
                 "outputs": outputs,
                 "inputs_count": len(inputs),

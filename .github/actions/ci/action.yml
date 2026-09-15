@@ -106,7 +106,7 @@ runs:
     # --- Rust / Tauri ---
     - name: Setup Rust
       if: steps.detect.outputs.has-rust == 'true' || steps.detect.outputs.has-kmp == 'true'
-      uses: OseMine/workflows/.github/actions/setup-rust@v1
+      uses: OseMine/workflows/.github/actions/setup-rust@v2
       with:
         rust-toolchain: ${{ inputs.rust-toolchain }}
 
@@ -157,7 +157,7 @@ runs:
     # --- Python ---
     - name: Setup Python
       if: steps.detect.outputs.has-python == 'true'
-      uses: OseMine/workflows/.github/actions/setup-python@v1
+      uses: OseMine/workflows/.github/actions/setup-python@v2
 
     - name: Python install (editable)
       if: steps.detect.outputs.has-python == 'true'
@@ -180,7 +180,7 @@ runs:
     # --- Flutter ---
     - name: Setup Flutter
       if: steps.detect.outputs.has-flutter == 'true'
-      uses: OseMine/workflows/.github/actions/flutter-setup@v1
+      uses: OseMine/workflows/.github/actions/flutter-setup@v2
 
     - name: Flutter analyze
       if: steps.detect.outputs.has-flutter == 'true'
@@ -197,7 +197,7 @@ runs:
     # --- Kotlin Multiplatform ---
     - name: Setup KMP
       if: steps.detect.outputs.has-kmp == 'true'
-      uses: OseMine/workflows/.github/actions/kmp-setup@v1
+      uses: OseMine/workflows/.github/actions/kmp-setup@v2
 
     - name: KMP checks
       if: steps.detect.outputs.has-kmp == 'true'
@@ -208,7 +208,7 @@ runs:
     # --- PHP ---
     - name: PHP lint
       if: steps.detect.outputs.has-php == 'true'
-      uses: OseMine/workflows/.github/actions/php-lint@v1
+      uses: OseMine/workflows/.github/actions/php-lint@v2
 
     # --- Lua ---
     - name: Lua syntax check

@@ -1,6 +1,6 @@
-# Pin policy: use @v1 for stable (receives non-breaking fixes), @latest for
+# Pin policy: use @v2 for stable (receives non-breaking fixes), @latest for
 # rolling, @main only for testing.  All internal cross-references in this
-# library are pinned to @v1 so a consumer pinning @v1 gets a consistent,
+# library are pinned to @v2 so a consumer pinning @v2 gets a consistent,
  # self-contained tree.  When you fork or copy a template, the pinned ref is
 # the one thing you update when you want new behaviour.
 name: Release
@@ -290,7 +290,7 @@ runs:
 
     - name: Run security gate
       if: ${{ inputs.mode == 'full' && inputs.security == 'true' }}
-      uses: OseMine/workflows/.github/actions/security@v1
+      uses: OseMine/workflows/.github/actions/security@v2
       with:
         min-rating: ${{ inputs.min-rating }}
         provider: ${{ inputs.provider }}
@@ -318,49 +318,49 @@ runs:
 
     - name: Python package (sdist + wheel)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'python') }}
-      uses: OseMine/workflows/.github/actions/python-build@v1
+      uses: OseMine/workflows/.github/actions/python-build@v2
 
     - name: Flutter APK + AAB + IPA
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'flutter') }}
-      uses: OseMine/workflows/.github/actions/flutter-build@v1
+      uses: OseMine/workflows/.github/actions/flutter-build@v2
 
     - name: Android APK (native)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'android') }}
-      uses: OseMine/workflows/.github/actions/android-build@v1
+      uses: OseMine/workflows/.github/actions/android-build@v2
 
     - name: iOS unsigned IPA (native)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'ios') && inputs.ios-scheme != '' }}
-      uses: OseMine/workflows/.github/actions/ios-build@v1
+      uses: OseMine/workflows/.github/actions/ios-build@v2
       with:
         scheme: ${{ inputs.ios-scheme }}
 
     - name: KMP Android build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'android') && contains(steps.lang.outputs.language, 'kmp') }}
-      uses: OseMine/workflows/.github/actions/kmp-android-build@v1
+      uses: OseMine/workflows/.github/actions/kmp-android-build@v2
 
     - name: Tauri desktop app build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'tauri') }}
-      uses: OseMine/workflows/.github/actions/tauri-build@v1
+      uses: OseMine/workflows/.github/actions/tauri-build@v2
 
     - name: C build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'c') && contains(steps.lang.outputs.language, 'c-cpp') }}
-      uses: OseMine/workflows/.github/actions/c-build@v1
+      uses: OseMine/workflows/.github/actions/c-build@v2
 
     - name: C++ build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'cpp') && contains(steps.lang.outputs.language, 'c-cpp') }}
-      uses: OseMine/workflows/.github/actions/cpp-build@v1
+      uses: OseMine/workflows/.github/actions/cpp-build@v2
 
     - name: C# / .NET build
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'csharp') && contains(steps.lang.outputs.language, 'csharp') }}
-      uses: OseMine/workflows/.github/actions/csharp-build@v1
+      uses: OseMine/workflows/.github/actions/csharp-build@v2
 
     - name: Java build (Maven)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'java') && contains(steps.lang.outputs.language, 'maven') }}
-      uses: OseMine/workflows/.github/actions/java-maven-build@v1
+      uses: OseMine/workflows/.github/actions/java-maven-build@v2
 
     - name: Java build (Gradle)
       if: ${{ inputs.mode == 'full' && contains(steps.meta.outputs.build_flags, 'java') && contains(steps.lang.outputs.language, 'gradle') }}
-      uses: OseMine/workflows/.github/actions/java-gradle-build@v1
+      uses: OseMine/workflows/.github/actions/java-gradle-build@v2
 
     - name: Collect artifacts
       shell: bash
@@ -543,7 +543,7 @@ runs:
         echo "path=$NOTES" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub release
-      uses: OseMine/workflows/.github/actions/github-release@v1
+      uses: OseMine/workflows/.github/actions/github-release@v2
       with:
         github-token: ${{ inputs.github-token || github.token }}
         tag: ${{ steps.meta.outputs.release_tag }}

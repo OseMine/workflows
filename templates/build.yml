@@ -3,7 +3,7 @@
 # build actions: rust-build, c-build, cpp-build, csharp-build, java-maven-build,
 # java-gradle-build, tauri-build, python-build, flutter-build, android-build,
 # ios-build, kmp-android-build) lives in the shared `build` action and updates
-# automatically at @v1 (or @latest for rolling updates).
+# automatically at @v2 (or @latest for rolling updates).
 #
 # Default trigger: workflow_dispatch (Actions tab → Run workflow), optional
 # push/PR triggers. Version bump the project files, set the tag, done.
@@ -40,7 +40,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: OseMine/workflows/.github/actions/build@v1
+      - uses: OseMine/workflows/.github/actions/build@v2
         with:
           language: ${{ inputs.language || 'auto' }}
           build: ${{ inputs.build || 'all' }}

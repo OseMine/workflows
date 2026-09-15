@@ -1,6 +1,6 @@
 # Thin OpenCode automation — copy into any project, replace the PROMPT,
 # done. Git identity, model fallback chain, and the runner logic live in the
-# shared `opencode` action and update automatically at @v1 (or @latest).
+# shared `opencode` action and update automatically at @v2 (or @latest).
 #
 # Triggers as needed: workflow_dispatch, schedule, issue_comment, issues.
 name: OpenCode Automation
@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - uses: OseMine/workflows/.github/actions/opencode@v1
+      - uses: OseMine/workflows/.github/actions/opencode@v2
         with:
           prompt: |
             REPLACE_WITH_PROJECT_PROMPT

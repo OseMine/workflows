@@ -2,18 +2,18 @@
 
 A collection of reusable composite GitHub Actions you can consume from **any**
 project. All logic lives in this repository; projects only copy a thin
-workflow (set `language:`) and point actions at `OseMine/workflows@v1`
+workflow (set `language:`) and point actions at `OseMine/workflows@v2`
 (stable) or `OseMine/workflows@latest` (rolling, always the newest commit).
 
 Update a composite action once → every consuming project inherits the fix.
 
-Pin each release to `@v1` for stability; move to `@latest` to track changes
+Pin each release to `@v2` for stability; move to `@latest` to track changes
 immediately. `@main` also works but tracks the branch head directly.
 
 ### Web workflow builder (visual)
 
 Point-and-click workflow composer for this whole library — browse every
-`@v1`/`@latest`/`@main` action, configure inputs in a UI, and download the
+`@v2`/`@latest`/`@main` action, configure inputs in a UI, and download the
 ready-to-commit `.yml`. The action catalog auto-updates from `catalog.json`
 on `main`, so new actions appear without redeploying.
 
@@ -28,7 +28,7 @@ on `main`, so new actions appear without redeploying.
 2. Set `language:`, `build:` or `prompt:` as needed.
 3. Commit, push, done.
 
-The templates already point at `OseMine/workflows@v1`, so no action ref
+The templates already point at `OseMine/workflows@v2`, so no action ref
 edits are needed. If you fork this repo, replace `OseMine/workflows` with your
 own org/repo throughout `templates/` and `.github/actions/`.
 
@@ -36,11 +36,12 @@ own org/repo throughout `templates/` and `.github/actions/`.
 
 | Ref | Meaning | When to use |
 |-----|---------|-------------|
-| `@v1` | Immutable release tag | Production - stable, tested |
+| `@v2` | Immutable release tag | Current stable - production |
+| `@v1` | Frozen previous major | Legacy - migrate to `@v2` |
 | `@latest` | Rolling tag = newest `main` commit | Track fixes immediately |
 | `@main` | Git branch head | Dev / bleeding edge |
 
-Internal actions reference each other via `@v1`, so a `@v1`-pinned build stays
+Internal actions reference each other via `@v2`, so a `@v2`-pinned build stays
 fully self-consistent.
 
 ### Build (multilanguage artifact dispatch)
@@ -58,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: OseMine/workflows/.github/actions/build@v1
+      - uses: OseMine/workflows/.github/actions/build@v2
         with:
           language: auto        # auto | rust | tauri | c | cpp | csharp | maven | gradle | python | flutter | android | ios | kmp
           build: all            # cargo, tauri, python, flutter, android, ios, kmp, c, cpp, csharp, java, all
@@ -75,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: OseMine/workflows/.github/actions/ci@v1
+      - uses: OseMine/workflows/.github/actions/ci@v2
         with:
           language: rust    # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle | php | lua
 ```
@@ -101,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
-      - uses: OseMine/workflows/.github/actions/release-all@v1
+      - uses: OseMine/workflows/.github/actions/release-all@v2
         with:
           language: rust
           build: ${{ github.event.inputs.build || 'all' }}
@@ -128,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: OseMine/workflows/.github/actions/security@v1
+      - uses: OseMine/workflows/.github/actions/security@v2
         with:
           min-rating: "7"
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
@@ -261,7 +262,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0, persist-credentials: true}
-      - uses: OseMine/workflows/.github/actions/opencode@v1
+      - uses: OseMine/workflows/.github/actions/opencode@v2
         with:
           prompt: "Analyze this Rust project for dead code and suggest removals"
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}
@@ -359,7 +360,7 @@ LICENSE
 
 ### 1. Publish this repo
 
-This repo is already wired for `OseMine/workflows@v1`. Push to GitHub and
+This repo is already wired for `OseMine/workflows@v2`. Push to GitHub and
 templates work out of the box.
 
 ### 2. Forking?
@@ -374,7 +375,7 @@ find . -name '*.yml' -exec sed -i 's|OseMine/workflows|OWNER/REPO|g' {} +
 ### 3. Copy workflows into your project
 
 Copy the appropriate `.yml` files from `templates/` into your project's
-`.github/workflows/` and commit. Templates pin to `@v1`; swap to `@latest` to
+`.github/workflows/` and commit. Templates pin to `@v2`; swap to `@latest` to
 follow fixes immediately.
 
 ### 4. Set up secrets
@@ -390,7 +391,7 @@ In your project's repo, configure the secrets referenced in the workflows
 
 When you improve or fix a composite action in this library, push a commit
 to `main`, then move the `latest` (and `v1` if it's a bugfix) tags. Every
-project pointing at `@v1` / `@latest` gets the fix automatically — no
+project pointing at `@v2` / `@latest` gets the fix automatically — no
 per-project PRs required.
 
 ## Multi-OS builds
@@ -409,7 +410,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: OseMine/workflows/.github/actions/ci@v1
+      - uses: OseMine/workflows/.github/actions/ci@v2
         with:
           language: tauri
 ```

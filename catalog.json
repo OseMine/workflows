@@ -6,7 +6,7 @@
       "id": "android-build",
       "name": "Build Android APK",
       "description": "Set up JDK + Gradle, optionally sign, build and upload an APK. Works on ubuntu-24.04 which ships Android SDK pre-installed.",
-      "uses": "OseMine/workflows/.github/actions/android-build@v1",
+      "uses": "OseMine/workflows/.github/actions/android-build@v2",
       "inputs": [
         {
           "id": "signed",
@@ -72,7 +72,7 @@
       "id": "build",
       "name": "Build artifacts (language dispatcher)",
       "description": "Overlying build orchestrator. Detects the project's languages (or uses the `language` input) and a `build` flag filter, then dispatches to the language-specific build actions: rust-build, c-build, cpp-build, csharp-build, java-maven-build, java-gradle-build, tauri-build, python-build, flutter-build, android-build, ios-build, kmp-android-build. Every underlying action is a drop-in step here, so this mirrors how `release-all` and `ci` compose the library: all heavy logic lives in the shared actions and this dispatcher just wires them together.",
-      "uses": "OseMine/workflows/.github/actions/build@v1",
+      "uses": "OseMine/workflows/.github/actions/build@v2",
       "inputs": [
         {
           "id": "language",
@@ -291,7 +291,7 @@
       "id": "bundle",
       "name": "Bundle plugins",
       "description": "Builds audio plugins (VST3/CLAP) via xtask and uploads them as artifacts. For nih-plug and similar Rust audio plugin projects.",
-      "uses": "OseMine/workflows/.github/actions/bundle@v1",
+      "uses": "OseMine/workflows/.github/actions/bundle@v2",
       "inputs": [
         {
           "id": "artifact",
@@ -317,7 +317,7 @@
       "id": "c-build",
       "name": "Build C",
       "description": "Compile a C project. Detects build system automatically (Make, CMake, cc) and collects the resulting binary into the output directory. Supports cross-compilation and custom compiler flags via inputs.",
-      "uses": "OseMine/workflows/.github/actions/c-build@v1",
+      "uses": "OseMine/workflows/.github/actions/c-build@v2",
       "inputs": [
         {
           "id": "build-system",
@@ -415,7 +415,7 @@
       "id": "cargo-publish",
       "name": "Publish to crates.io",
       "description": "Publish the Rust crate to crates.io with the provided API token. Skips if the version is already published (idempotent).",
-      "uses": "OseMine/workflows/.github/actions/cargo-publish@v1",
+      "uses": "OseMine/workflows/.github/actions/cargo-publish@v2",
       "inputs": [
         {
           "id": "token",
@@ -441,7 +441,7 @@
       "id": "checks",
       "name": "Run rust checks",
       "description": "Full Rust quality gate: formatting, clippy (-D warnings), and the complete test suite. Intended for every Rust job regardless of the workflow that hosts it.",
-      "uses": "OseMine/workflows/.github/actions/checks@v1",
+      "uses": "OseMine/workflows/.github/actions/checks@v2",
       "inputs": [
         {
           "id": "manifest",
@@ -475,7 +475,7 @@
       "id": "ci",
       "name": "CI (language dispatcher)",
       "description": "Setup, lint, and test a project based on its language. Detects the stack automatically or uses the provided `language` input. All heavy logic lives here so projects only need a thin workflow.",
-      "uses": "OseMine/workflows/.github/actions/ci@v1",
+      "uses": "OseMine/workflows/.github/actions/ci@v2",
       "inputs": [
         {
           "id": "language",
@@ -534,7 +534,7 @@
       "id": "cpp-build",
       "name": "Build C++",
       "description": "Compile a C++ project. Detects build system automatically (CMake, make, g++) and collects the resulting binary into the output directory. Supports custom compilers, standards, and flags.",
-      "uses": "OseMine/workflows/.github/actions/cpp-build@v1",
+      "uses": "OseMine/workflows/.github/actions/cpp-build@v2",
       "inputs": [
         {
           "id": "build-system",
@@ -632,7 +632,7 @@
       "id": "csharp-build",
       "name": "Build C# / .NET",
       "description": "Build a .NET solution. Supports single/multi-project builds, test execution, self-contained single-file publish, and custom artifact globs.",
-      "uses": "OseMine/workflows/.github/actions/csharp-build@v1",
+      "uses": "OseMine/workflows/.github/actions/csharp-build@v2",
       "inputs": [
         {
           "id": "command",
@@ -738,7 +738,7 @@
       "id": "flutter-build",
       "name": "Flutter build",
       "description": "Build Flutter artifacts (APK universal + split-per-abi, AAB, and/or unsigned IPA) and package release artifacts with checksums and a release manifest.",
-      "uses": "OseMine/workflows/.github/actions/flutter-build@v1",
+      "uses": "OseMine/workflows/.github/actions/flutter-build@v2",
       "inputs": [
         {
           "id": "build-apk",
@@ -804,7 +804,7 @@
       "id": "flutter-setup",
       "name": "Setup Flutter",
       "description": "Install a Flutter SDK with dependency caching and optional native-build cache.",
-      "uses": "OseMine/workflows/.github/actions/flutter-setup@v1",
+      "uses": "OseMine/workflows/.github/actions/flutter-setup@v2",
       "inputs": [
         {
           "id": "flutter-version",
@@ -854,7 +854,7 @@
       "id": "github-release",
       "name": "Create GitHub Release",
       "description": "Derive the version from the pushed tag, build a changelog from git log, and create the GitHub release with optional assets + checksums. Requires `permissions: contents: write` in the calling workflow.",
-      "uses": "OseMine/workflows/.github/actions/github-release@v1",
+      "uses": "OseMine/workflows/.github/actions/github-release@v2",
       "inputs": [
         {
           "id": "tag",
@@ -936,7 +936,7 @@
       "id": "installer",
       "name": "Build Windows installer",
       "description": "Builds a Windows installer (Inno Setup) from bundled plugins. Reads version from Cargo.toml. Only runs on Windows runners.",
-      "uses": "OseMine/workflows/.github/actions/installer@v1",
+      "uses": "OseMine/workflows/.github/actions/installer@v2",
       "inputs": [
         {
           "id": "app-name",
@@ -970,7 +970,7 @@
       "id": "ios-build",
       "name": "Build iOS IPA",
       "description": "Builds an iOS app with xcodebuild and packages an unsigned IPA. Requires macOS runner with Xcode installed. Uses XcodeGen to generate the Xcode project from a project.yml spec.",
-      "uses": "OseMine/workflows/.github/actions/ios-build@v1",
+      "uses": "OseMine/workflows/.github/actions/ios-build@v2",
       "inputs": [
         {
           "id": "project-dir",
@@ -1044,7 +1044,7 @@
       "id": "java-gradle-build",
       "name": "Build Java (Gradle)",
       "description": "Build a Java/Kotlin/Groovy project with Gradle. Uses the gradle wrapper when present, runs tests optionally, and collects artifacts into the output dir.",
-      "uses": "OseMine/workflows/.github/actions/java-gradle-build@v1",
+      "uses": "OseMine/workflows/.github/actions/java-gradle-build@v2",
       "inputs": [
         {
           "id": "command",
@@ -1142,7 +1142,7 @@
       "id": "java-maven-build",
       "name": "Build Java (Maven)",
       "description": "Build a Java project with Maven. Runs tests optionally, packages the jar, and collects artifacts into the output directory.",
-      "uses": "OseMine/workflows/.github/actions/java-maven-build@v1",
+      "uses": "OseMine/workflows/.github/actions/java-maven-build@v2",
       "inputs": [
         {
           "id": "command",
@@ -1240,7 +1240,7 @@
       "id": "kmp-android-build",
       "name": "KMP Android build",
       "description": "Kotlin Multiplatform Android APK build (signed or unsigned)",
-      "uses": "OseMine/workflows/.github/actions/kmp-android-build@v1",
+      "uses": "OseMine/workflows/.github/actions/kmp-android-build@v2",
       "inputs": [
         {
           "id": "signed",
@@ -1322,7 +1322,7 @@
       "id": "kmp-ios-build",
       "name": "KMP iOS build",
       "description": "Kotlin Multiplatform iOS IPA build (unsigned)",
-      "uses": "OseMine/workflows/.github/actions/kmp-ios-build@v1",
+      "uses": "OseMine/workflows/.github/actions/kmp-ios-build@v2",
       "inputs": [
         {
           "id": "artifact-name",
@@ -1380,7 +1380,7 @@
       "id": "kmp-setup",
       "name": "KMP setup",
       "description": "Set up JDK + Gradle cache for Kotlin Multiplatform builds",
-      "uses": "OseMine/workflows/.github/actions/kmp-setup@v1",
+      "uses": "OseMine/workflows/.github/actions/kmp-setup@v2",
       "inputs": [
         {
           "id": "java-version",
@@ -1406,7 +1406,7 @@
       "id": "lint",
       "name": "Run rust lints",
       "description": "Fast formatting and clippy feedback without the full build/test suite. Use this for quick CI lint checks.",
-      "uses": "OseMine/workflows/.github/actions/lint@v1",
+      "uses": "OseMine/workflows/.github/actions/lint@v2",
       "inputs": [
         {
           "id": "manifest",
@@ -1432,7 +1432,7 @@
       "id": "nextcloud-app",
       "name": "Nextcloud app package",
       "description": "Package a Nextcloud app folder as a .zip",
-      "uses": "OseMine/workflows/.github/actions/nextcloud-app@v1",
+      "uses": "OseMine/workflows/.github/actions/nextcloud-app@v2",
       "inputs": [
         {
           "id": "app-dir",
@@ -1466,7 +1466,7 @@
       "id": "opencode",
       "name": "Run OpenCode (AI automation)",
       "description": "Runs opencode-ai with a prompt inside the checked-out repository using a primary provider+model and a fallback provider+model (API keys per provider). Sets git identity, runs the first model that works, and summarizes. Projects call this from a thin workflow so the AI logic can be updated centrally.",
-      "uses": "OseMine/workflows/.github/actions/opencode@v1",
+      "uses": "OseMine/workflows/.github/actions/opencode@v2",
       "inputs": [
         {
           "id": "prompt",
@@ -1604,7 +1604,7 @@
       "id": "php-lint",
       "name": "PHP lint",
       "description": "PHP CodeSniffer / Psalm / PHPStan lint",
-      "uses": "OseMine/workflows/.github/actions/php-lint@v1",
+      "uses": "OseMine/workflows/.github/actions/php-lint@v2",
       "inputs": [
         {
           "id": "php-version",
@@ -1662,7 +1662,7 @@
       "id": "pyinstaller",
       "name": "Build with PyInstaller",
       "description": "Builds a Python executable with PyInstaller. Handles platform-specific packaging: .exe on Windows, .app bundle on macOS, plain binary on Linux. Uploads artifacts automatically.",
-      "uses": "OseMine/workflows/.github/actions/pyinstaller@v1",
+      "uses": "OseMine/workflows/.github/actions/pyinstaller@v2",
       "inputs": [
         {
           "id": "name",
@@ -1743,8 +1743,8 @@
     {
       "id": "pypi-publish",
       "name": "Publish to PyPI",
-      "description": "Publish built distributions to PyPI using trusted publishing (OIDC). Requires `permissions: id-token: write` and a PyPI trusted publisher configured for this repository and the calling workflow.",
-      "uses": "OseMine/workflows/.github/actions/pypi-publish@v1",
+      "description": "Publish built distributions to PyPI using trusted publishing (OIDC). Requires `permissions: id-token: write` on the calling job and a PyPI trusted publisher configured for this repository and workflow. Set repository-url to publish to TestPyPI.",
+      "uses": "OseMine/workflows/.github/actions/pypi-publish@v2",
       "inputs": [
         {
           "id": "working-directory",
@@ -1753,16 +1753,32 @@
           "required": false,
           "secret_like": false,
           "boolean": false
+        },
+        {
+          "id": "repository-url",
+          "description": "PyPI upload URL (default is production PyPI; use https://test.pypi.org/legacy/ for TestPyPI)",
+          "default": "https://upload.pypi.org/legacy/",
+          "required": false,
+          "secret_like": false,
+          "boolean": false
+        },
+        {
+          "id": "skip-existing",
+          "description": "If true, pass --skip-existing to twine so reruns with an already-published version do not fail",
+          "default": "false",
+          "required": false,
+          "secret_like": false,
+          "boolean": true
         }
       ],
       "outputs": [],
-      "inputs_count": 1
+      "inputs_count": 3
     },
     {
       "id": "python-build",
       "name": "Build Python package",
       "description": "Build an sdist and wheel and optionally verify the wheel installs and imports in a clean venv.",
-      "uses": "OseMine/workflows/.github/actions/python-build@v1",
+      "uses": "OseMine/workflows/.github/actions/python-build@v2",
       "inputs": [
         {
           "id": "python-version",
@@ -1804,7 +1820,7 @@
       "id": "python-setup",
       "name": "Setup Python",
       "description": "Installs Python with pip caching and project dependencies. Supports requirements.txt, pyproject.toml, or custom dependency files.",
-      "uses": "OseMine/workflows/.github/actions/python-setup@v1",
+      "uses": "OseMine/workflows/.github/actions/python-setup@v2",
       "inputs": [
         {
           "id": "python-version",
@@ -1846,7 +1862,7 @@
       "id": "release-all",
       "name": "Release",
       "description": "Unified release pipeline. Two modes: - full (default): version resolution -> builds -> security gate -> AI notes -> GitHub release with SHA256SUMS + manifest - simple: download artifacts / use local files -> create GitHub release (with optional AI/auto-generated notes)",
-      "uses": "OseMine/workflows/.github/actions/release-all@v1",
+      "uses": "OseMine/workflows/.github/actions/release-all@v2",
       "inputs": [
         {
           "id": "mode",
@@ -2144,7 +2160,7 @@
       "id": "rust-build",
       "name": "Build Rust",
       "description": "Build a Rust project with cargo. Detects release binaries automatically and collects them into the output directory. Inputs are fully overridable so the action works for pure Rust, C FFI, WebAssembly, and cross-compiled targets.",
-      "uses": "OseMine/workflows/.github/actions/rust-build@v1",
+      "uses": "OseMine/workflows/.github/actions/rust-build@v2",
       "inputs": [
         {
           "id": "cargo-command",
@@ -2226,7 +2242,7 @@
       "id": "security",
       "name": "Security gate",
       "description": "Scans the whole project for security issues and condenses them into a categorized report plus a security rating (0-10): dependency vulnerabilities (Trivy across all lockfiles, npm audit, cargo-audit), VirusTotal artifact reputation scans (optional, needs an API key), hardcoded secrets (Trivy), PHP syntax errors (auto-detected), optional verification tests and an optional AI code review via OpenCode. Findings are reported as run annotations and in the step summary. The action fails when the rating is below min-rating or a critical finding exists - callers can use this to abort releases.",
-      "uses": "OseMine/workflows/.github/actions/security@v1",
+      "uses": "OseMine/workflows/.github/actions/security@v2",
       "inputs": [
         {
           "id": "min-rating",
@@ -2393,7 +2409,7 @@
       "id": "setup",
       "name": "Setup Rust toolchain",
       "description": "Installs the Rust toolchain with clippy and rustfmt, platform-specific dependencies, and a shared cargo cache. Supports both Tauri and audio plugin (nih-plug) projects.",
-      "uses": "OseMine/workflows/.github/actions/setup@v1",
+      "uses": "OseMine/workflows/.github/actions/setup@v2",
       "inputs": [
         {
           "id": "rust-version",
@@ -2435,7 +2451,7 @@
       "id": "setup-python",
       "name": "Setup Python",
       "description": "Install a specific Python version and upgrade pip.",
-      "uses": "OseMine/workflows/.github/actions/setup-python@v1",
+      "uses": "OseMine/workflows/.github/actions/setup-python@v2",
       "inputs": [
         {
           "id": "python-version",
@@ -2453,7 +2469,7 @@
       "id": "setup-rust",
       "name": "Setup Rust",
       "description": "Install the stable Rust toolchain with optional components, enable build caching, and optionally install system dev headers (ALSA, etc.).",
-      "uses": "OseMine/workflows/.github/actions/setup-rust@v1",
+      "uses": "OseMine/workflows/.github/actions/setup-rust@v2",
       "inputs": [
         {
           "id": "rust-toolchain",
@@ -2503,7 +2519,7 @@
       "id": "shell-lint",
       "name": "Shell + PowerShell lint",
       "description": "ShellCheck (bash) and PSScriptAnalyzer (PowerShell)",
-      "uses": "OseMine/workflows/.github/actions/shell-lint@v1",
+      "uses": "OseMine/workflows/.github/actions/shell-lint@v2",
       "inputs": [
         {
           "id": "shell-check-severity",
@@ -2529,7 +2545,7 @@
       "id": "tauri-build",
       "name": "Build Tauri",
       "description": "Build a Tauri desktop application (Rust + webview frontend). Supports building the Rust binary, the full Tauri bundle (AppImage/deb/nsis/msi/dmg), and collecting release artifacts.",
-      "uses": "OseMine/workflows/.github/actions/tauri-build@v1",
+      "uses": "OseMine/workflows/.github/actions/tauri-build@v2",
       "inputs": [
         {
           "id": "command",
@@ -2654,14 +2670,14 @@
       "file": "build.yml",
       "name": "Build",
       "description": "Thin build workflow — copy into any project, set optional `language` and",
-      "content": "# Thin build workflow — copy into any project, set optional `language` and\n# `build` filters. Everything (language detection + dispatch to the per-language\n# build actions: rust-build, c-build, cpp-build, csharp-build, java-maven-build,\n# java-gradle-build, tauri-build, python-build, flutter-build, android-build,\n# ios-build, kmp-android-build) lives in the shared `build` action and updates\n# automatically at @v1 (or @latest for rolling updates).\n#\n# Default trigger: workflow_dispatch (Actions tab → Run workflow), optional\n# push/PR triggers. Version bump the project files, set the tag, done.\nname: Build\n\non:\n  workflow_dispatch:\n    inputs:\n      language:\n        description: >-\n          Main stack(s): auto | rust | tauri | c | cpp | csharp | maven |\n          gradle | python | flutter | android | ios | kmp (comma-separated OK)\n        required: false\n        type: string\n        default: auto\n      build:\n        description: >-\n          Comma-separated build filters: cargo, tauri, python, flutter,\n          android, ios, kmp, c, cpp, csharp, java, all\n        required: false\n        type: string\n        default: all\n  push:\n    branches: [\"main\"]\n  pull_request:\n    branches: [\"main\"]\n\njobs:\n  build:\n    name: Build artifacts\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/build@v1\n        with:\n          language: ${{ inputs.language || 'auto' }}\n          build: ${{ inputs.build || 'all' }}\n          # --- optional toolchain overrides ---\n          # rust-toolchain: stable\n          # java-version: 17\n          # java-distribution: temurin\n          # dotnet-version: \"9.0\"\n          # python-version: \"3.12\"\n          # --- signing for mobile (only when building android/kmp signed) ---\n          # android-signed: \"false\"\n          # keystore: ${{ secrets.ANDROID_KEYSTORE }}\n          # keystore-store-password: ${{ secrets.KEYSTORE_STORE_PASSWORD }}\n          # keystore-key-alias: ${{ secrets.KEYSTORE_KEY_ALIAS }}\n          # keystore-key-password: ${{ secrets.KEYSTORE_KEY_PASSWORD }}"
+      "content": "# Thin build workflow — copy into any project, set optional `language` and\n# `build` filters. Everything (language detection + dispatch to the per-language\n# build actions: rust-build, c-build, cpp-build, csharp-build, java-maven-build,\n# java-gradle-build, tauri-build, python-build, flutter-build, android-build,\n# ios-build, kmp-android-build) lives in the shared `build` action and updates\n# automatically at @v2 (or @latest for rolling updates).\n#\n# Default trigger: workflow_dispatch (Actions tab → Run workflow), optional\n# push/PR triggers. Version bump the project files, set the tag, done.\nname: Build\n\non:\n  workflow_dispatch:\n    inputs:\n      language:\n        description: >-\n          Main stack(s): auto | rust | tauri | c | cpp | csharp | maven |\n          gradle | python | flutter | android | ios | kmp (comma-separated OK)\n        required: false\n        type: string\n        default: auto\n      build:\n        description: >-\n          Comma-separated build filters: cargo, tauri, python, flutter,\n          android, ios, kmp, c, cpp, csharp, java, all\n        required: false\n        type: string\n        default: all\n  push:\n    branches: [\"main\"]\n  pull_request:\n    branches: [\"main\"]\n\njobs:\n  build:\n    name: Build artifacts\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/build@v2\n        with:\n          language: ${{ inputs.language || 'auto' }}\n          build: ${{ inputs.build || 'all' }}\n          # --- optional toolchain overrides ---\n          # rust-toolchain: stable\n          # java-version: 17\n          # java-distribution: temurin\n          # dotnet-version: \"9.0\"\n          # python-version: \"3.12\"\n          # --- signing for mobile (only when building android/kmp signed) ---\n          # android-signed: \"false\"\n          # keystore: ${{ secrets.ANDROID_KEYSTORE }}\n          # keystore-store-password: ${{ secrets.KEYSTORE_STORE_PASSWORD }}\n          # keystore-key-alias: ${{ secrets.KEYSTORE_KEY_ALIAS }}\n          # keystore-key-password: ${{ secrets.KEYSTORE_KEY_PASSWORD }}"
     },
     {
       "id": "ci",
       "file": "ci.yml",
       "name": "CI",
       "description": "Thin CI workflow — copy into any project. Set `language` (or a repo",
-      "content": "# Thin CI workflow — copy into any project. Set `language` (or a repo\n# variable `CI_LANGUAGE`) and done. All lint/check/test logic lives in the\n# shared `ci` action and updates automatically at @v1 (or @latest for rolling).\nname: CI\n\non:\n  push:\n    branches: [main, master]\n  pull_request:\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  ci:\n    name: CI\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/ci@v1\n        with:\n          language: ${{ vars.CI_LANGUAGE || 'auto' }}\n          # auto | rust | tauri | node | python | flutter | kmp | php | lua\n          # comma lists allowed, e.g. 'rust,node'\n          rust-toolchain: stable"
+      "content": "# Thin CI workflow — copy into any project. Set `language` (or a repo\n# variable `CI_LANGUAGE`) and done. All lint/check/test logic lives in the\n# shared `ci` action and updates automatically at @v2 (or @latest for rolling).\nname: CI\n\non:\n  push:\n    branches: [main, master]\n  pull_request:\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  ci:\n    name: CI\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/ci@v2\n        with:\n          language: ${{ vars.CI_LANGUAGE || 'auto' }}\n          # auto | rust | tauri | node | python | flutter | kmp | php | lua\n          # comma lists allowed, e.g. 'rust,node'\n          rust-toolchain: stable"
     },
     {
       "id": "codeql",
@@ -2682,42 +2698,42 @@
       "file": "nightly.yml",
       "name": "Nightly",
       "description": "Nightly build/smoke template — copy into any project",
-      "content": "# Nightly build/smoke template — copy into any project.\nname: Nightly\n\non:\n  schedule:\n    - cron: \"0 3 * * *\" # 03:00 UTC daily\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\njobs:\n  nightly:\n    name: Nightly checks\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/ci@v1\n        with:\n          language: ${{ vars.CI_LANGUAGE || 'auto' }}\n          rust-toolchain: stable\n\n      # Extend with your stack's build actions, e.g.:\n      # - uses: OseMine/workflows/.github/actions/flutter-build@v1\n\n      - run: echo \"Nightly checks completed\""
+      "content": "# Nightly build/smoke template — copy into any project.\nname: Nightly\n\non:\n  schedule:\n    - cron: \"0 3 * * *\" # 03:00 UTC daily\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\njobs:\n  nightly:\n    name: Nightly checks\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/ci@v2\n        with:\n          language: ${{ vars.CI_LANGUAGE || 'auto' }}\n          rust-toolchain: stable\n\n      # Extend with your stack's build actions, e.g.:\n      # - uses: OseMine/workflows/.github/actions/flutter-build@v2\n\n      - run: echo \"Nightly checks completed\""
     },
     {
       "id": "opencode-review",
       "file": "opencode-review.yml",
       "name": "OpenCode Code Review",
       "description": "",
-      "content": "name: OpenCode Code Review\n\non:\n  workflow_dispatch:\n    inputs:\n      focus:\n        description: \"Focus area for the review (e.g. 'backend API', 'DSP modules')\"\n        required: false\n        type: string\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\nconcurrency:\n  group: opencode-review\n  cancel-in-progress: true\n\njobs:\n  issues-to-todo:\n    name: Sync issues to todo.md\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    permissions:\n      contents: write\n      issues: read\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Fetch open issues and write to todo.md\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |-\n          ISSUES=$(gh issue list --state open --json number,title,labels \\\n            --jq '.[] | \"\\(.number)\\t\\(.title)\\t\\([.labels[].name] | join(\",\"))\"')\n\n          if [ -z \"$ISSUES\" ]; then\n            echo \"No open issues found\"\n            exit 0\n          fi\n\n          if [ ! -f todo.md ]; then\n            echo \"# Todo\" > todo.md\n            echo \"\" >> todo.md\n          fi\n\n          echo \"$ISSUES\" > /tmp/issues.txt\n          cat > /tmp/sync-prompt.txt <<'EOF'\n          Lies todo.md und füge offene GitHub-Issues hinzu.\n\n          Offene Issues (aus der GitHub API):\n          EOF\n          cat /tmp/issues.txt >> /tmp/sync-prompt.txt\n          cat >> /tmp/sync-prompt.txt <<'EOF'\n\n          Regeln:\n          1. Lies todo.md vollständig\n          2. Füge jedes Issue als '- [ ] #<number> <title> [<labels>]' hinzu\n          3. Überspringe Issues, die bereits in todo.md existieren (gleiche Nummer)\n          4. Behalte die bestehende Struktur bei\n          5. Speichere die Änderungen in todo.md\n          6. Committen Sie die Datei\n          EOF\n\n      - name: Sync issues into todo.md (AI)\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          prompt-file: /tmp/sync-prompt.txt\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n\n      - name: Push todo.md\n        if: always()\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          if [ -n \"$(git status --porcelain todo.md)\" ]; then\n            git add todo.md\n            git commit -m \"chore: sync open issues to todo.md\"\n            git push origin HEAD\n          fi\n\n  review:\n    name: Code review\n    runs-on: ubuntu-latest\n    needs: issues-to-todo\n    timeout-minutes: 60\n    permissions:\n      contents: write\n      pull-requests: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Run OpenCode review\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        id: review\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          agent: ${{ vars.REVIEW_AGENT || 'build' }}\n          timeout-minutes: \"55\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt: |\n            Automated code review of this project.\n            Focus area: ${{ github.event.inputs.focus || 'the entire project' }}\n\n            Steps:\n            1. Read README.md, package.json/Cargo.toml, and all source code.\n               Read existing todo.md if present.\n            2. Find bugs, missing features, and improvement suggestions.\n               Verify suspicions by running tests where possible.\n            3. Write the review as a dated section in todo.md (or\n               reports/review-YYYY-MM-DD.md). Start writing early, don't\n               wait until the end.\n            4. Append new findings as a dated section at the top of todo.md.\n               Leave existing entries untouched.\n            5. Check which items in todo.md are done, mark them as completed\n               [x] and move finished items to archived-todo.md.\n            6. Review open GitHub issues. Add open issues to todos and close\n               resolved ones.\n\n            Rules:\n            - Only modify todo.md and reports/. No application code changes.\n            - No git operations (commit, push, PRs, merges, branch deletes).\n            - No GitHub API calls. No destructive actions.\n            - Every finding must include concrete file/function names.\n            - If no new findings exist, state that explicitly in the report.\n\n      - name: Create pull request with review results\n        if: always()\n        uses: peter-evans/create-pull-request@v7\n        with:\n          branch: review/opencode-${{ github.run_id }}\n          commit-message: \"chore: opencode review report\"\n          title: \"chore: opencode review report\"\n          body: |\n            Automated review report from OpenCode.\n\n            - Contains only changes to todo.md and reports/.\n            - Please review and merge.\n          delete-branch: true\n\n  review-prs:\n    name: Review & merge PRs\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    permissions:\n      contents: write\n      pull-requests: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: List open PRs\n        id: prs\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          PRS=$(gh pr list --state open --json number,title,headRefName \\\n            --jq '.[] | \"\\(.number)\\t\\(.title)\\t\\(.headRefName)\"')\n          echo \"prs<<EOF\" >> \"$GITHUB_OUTPUT\"\n          echo \"$PRS\" >> \"$GITHUB_OUTPUT\"\n          echo \"EOF\" >> \"$GITHUB_OUTPUT\"\n          echo \"$PRS\" > /tmp/prs.txt\n\n      - name: Build PR review prompt\n        if: steps.prs.outputs.prs != ''\n        shell: bash\n        run: |\n          cat > /tmp/pr-review-prompt.txt <<'EOF'\n          For each open pull request below:\n          1. git fetch origin pull/<number>/head:pr-<number>\n          2. git checkout pr-<number>\n          3. Review the PR. Evaluate: 1) Code correctness, 2) Project conventions,\n             3) Security.\n          4. Decide: MERGE / APPROVE / REJECT.\n          5. Apply the decision with the gh CLI (GITHUB_TOKEN is set):\n             - MERGE   -> gh pr merge <number> --squash --delete-branch\n             - APPROVE -> gh pr review <number> --approve --body \"<one-line rationale>\"\n             - REJECT  -> gh pr comment <number> --body \"Automated review: <rationale>\"\n          6. git checkout main || git checkout master\n\n          Open PRs (number, title, headRef):\n          EOF\n          cat /tmp/prs.txt >> /tmp/pr-review-prompt.txt\n\n      - name: Review open PRs (AI)\n        if: steps.prs.outputs.prs != ''\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          timeout-minutes: \"55\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt-file: /tmp/pr-review-prompt.txt\n\n  branch-cleanup:\n    name: Delete stale branches\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    permissions:\n      contents: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Delete merged branches\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          git fetch --prune 2>/dev/null || true\n          MERGED=$(git branch -r --merged origin/main 2>/dev/null | grep -v 'origin/main' | grep -v 'origin/master' | sed 's|origin/||' || true)\n\n          for branch in $MERGED; do\n            case \"$branch\" in\n              main|master|develop|dev|staging|production) continue ;;\n            esac\n            echo \"Deleting merged branch: $branch\"\n            git push origin --delete \"$branch\" 2>&1 || echo \"Failed to delete $branch\"\n          done\n\n      - name: Delete stale branches (>90 days)\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          BRANCHES=$(gh api repos/{owner}/{repo}/branches --paginate --jq '.[].name' 2>/dev/null || true)\n          CUTOFF=$(date -d \"90 days ago\" --utc +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -v-90d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)\n\n          for branch in $BRANCHES; do\n            case \"$branch\" in\n              main|master|develop|dev|staging|production) continue ;;\n            esac\n            LAST_COMMIT=$(gh api \"repos/{owner}/{repo}/branches/$branch\" --jq '.commit.commit.author.date' 2>/dev/null || true)\n            if [ -n \"$LAST_COMMIT\" ] && [ -n \"$CUTOFF\" ] && [[ \"$LAST_COMMIT\" < \"$CUTOFF\" ]]; then\n              echo \"Deleting stale branch: $branch (last: $LAST_COMMIT)\"\n              git push origin --delete \"$branch\" 2>&1 || echo \"Failed to delete $branch\"\n            fi\n          done\n"
+      "content": "name: OpenCode Code Review\n\non:\n  workflow_dispatch:\n    inputs:\n      focus:\n        description: \"Focus area for the review (e.g. 'backend API', 'DSP modules')\"\n        required: false\n        type: string\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\nconcurrency:\n  group: opencode-review\n  cancel-in-progress: true\n\njobs:\n  issues-to-todo:\n    name: Sync issues to todo.md\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    permissions:\n      contents: write\n      issues: read\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Fetch open issues and write to todo.md\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |-\n          ISSUES=$(gh issue list --state open --json number,title,labels \\\n            --jq '.[] | \"\\(.number)\\t\\(.title)\\t\\([.labels[].name] | join(\",\"))\"')\n\n          if [ -z \"$ISSUES\" ]; then\n            echo \"No open issues found\"\n            exit 0\n          fi\n\n          if [ ! -f todo.md ]; then\n            echo \"# Todo\" > todo.md\n            echo \"\" >> todo.md\n          fi\n\n          echo \"$ISSUES\" > /tmp/issues.txt\n          cat > /tmp/sync-prompt.txt <<'EOF'\n          Lies todo.md und füge offene GitHub-Issues hinzu.\n\n          Offene Issues (aus der GitHub API):\n          EOF\n          cat /tmp/issues.txt >> /tmp/sync-prompt.txt\n          cat >> /tmp/sync-prompt.txt <<'EOF'\n\n          Regeln:\n          1. Lies todo.md vollständig\n          2. Füge jedes Issue als '- [ ] #<number> <title> [<labels>]' hinzu\n          3. Überspringe Issues, die bereits in todo.md existieren (gleiche Nummer)\n          4. Behalte die bestehende Struktur bei\n          5. Speichere die Änderungen in todo.md\n          6. Committen Sie die Datei\n          EOF\n\n      - name: Sync issues into todo.md (AI)\n        uses: OseMine/workflows/.github/actions/opencode@v2\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          prompt-file: /tmp/sync-prompt.txt\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n\n      - name: Push todo.md\n        if: always()\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          if [ -n \"$(git status --porcelain todo.md)\" ]; then\n            git add todo.md\n            git commit -m \"chore: sync open issues to todo.md\"\n            git push origin HEAD\n          fi\n\n  review:\n    name: Code review\n    runs-on: ubuntu-latest\n    needs: issues-to-todo\n    timeout-minutes: 60\n    permissions:\n      contents: write\n      pull-requests: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Run OpenCode review\n        uses: OseMine/workflows/.github/actions/opencode@v2\n        id: review\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          agent: ${{ vars.REVIEW_AGENT || 'build' }}\n          timeout-minutes: \"55\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt: |\n            Automated code review of this project.\n            Focus area: ${{ github.event.inputs.focus || 'the entire project' }}\n\n            Steps:\n            1. Read README.md, package.json/Cargo.toml, and all source code.\n               Read existing todo.md if present.\n            2. Find bugs, missing features, and improvement suggestions.\n               Verify suspicions by running tests where possible.\n            3. Write the review as a dated section in todo.md (or\n               reports/review-YYYY-MM-DD.md). Start writing early, don't\n               wait until the end.\n            4. Append new findings as a dated section at the top of todo.md.\n               Leave existing entries untouched.\n            5. Check which items in todo.md are done, mark them as completed\n               [x] and move finished items to archived-todo.md.\n            6. Review open GitHub issues. Add open issues to todos and close\n               resolved ones.\n\n            Rules:\n            - Only modify todo.md and reports/. No application code changes.\n            - No git operations (commit, push, PRs, merges, branch deletes).\n            - No GitHub API calls. No destructive actions.\n            - Every finding must include concrete file/function names.\n            - If no new findings exist, state that explicitly in the report.\n\n      - name: Create pull request with review results\n        if: always()\n        uses: peter-evans/create-pull-request@v7\n        with:\n          branch: review/opencode-${{ github.run_id }}\n          commit-message: \"chore: opencode review report\"\n          title: \"chore: opencode review report\"\n          body: |\n            Automated review report from OpenCode.\n\n            - Contains only changes to todo.md and reports/.\n            - Please review and merge.\n          delete-branch: true\n\n  review-prs:\n    name: Review & merge PRs\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    permissions:\n      contents: write\n      pull-requests: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: List open PRs\n        id: prs\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          PRS=$(gh pr list --state open --json number,title,headRefName \\\n            --jq '.[] | \"\\(.number)\\t\\(.title)\\t\\(.headRefName)\"')\n          echo \"prs<<EOF\" >> \"$GITHUB_OUTPUT\"\n          echo \"$PRS\" >> \"$GITHUB_OUTPUT\"\n          echo \"EOF\" >> \"$GITHUB_OUTPUT\"\n          echo \"$PRS\" > /tmp/prs.txt\n\n      - name: Build PR review prompt\n        if: steps.prs.outputs.prs != ''\n        shell: bash\n        run: |\n          cat > /tmp/pr-review-prompt.txt <<'EOF'\n          For each open pull request below:\n          1. git fetch origin pull/<number>/head:pr-<number>\n          2. git checkout pr-<number>\n          3. Review the PR. Evaluate: 1) Code correctness, 2) Project conventions,\n             3) Security.\n          4. Decide: MERGE / APPROVE / REJECT.\n          5. Apply the decision with the gh CLI (GITHUB_TOKEN is set):\n             - MERGE   -> gh pr merge <number> --squash --delete-branch\n             - APPROVE -> gh pr review <number> --approve --body \"<one-line rationale>\"\n             - REJECT  -> gh pr comment <number> --body \"Automated review: <rationale>\"\n          6. git checkout main || git checkout master\n\n          Open PRs (number, title, headRef):\n          EOF\n          cat /tmp/prs.txt >> /tmp/pr-review-prompt.txt\n\n      - name: Review open PRs (AI)\n        if: steps.prs.outputs.prs != ''\n        uses: OseMine/workflows/.github/actions/opencode@v2\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          timeout-minutes: \"55\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt-file: /tmp/pr-review-prompt.txt\n\n  branch-cleanup:\n    name: Delete stale branches\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    permissions:\n      contents: write\n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Delete merged branches\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          git fetch --prune 2>/dev/null || true\n          MERGED=$(git branch -r --merged origin/main 2>/dev/null | grep -v 'origin/main' | grep -v 'origin/master' | sed 's|origin/||' || true)\n\n          for branch in $MERGED; do\n            case \"$branch\" in\n              main|master|develop|dev|staging|production) continue ;;\n            esac\n            echo \"Deleting merged branch: $branch\"\n            git push origin --delete \"$branch\" 2>&1 || echo \"Failed to delete $branch\"\n          done\n\n      - name: Delete stale branches (>90 days)\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          BRANCHES=$(gh api repos/{owner}/{repo}/branches --paginate --jq '.[].name' 2>/dev/null || true)\n          CUTOFF=$(date -d \"90 days ago\" --utc +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -v-90d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)\n\n          for branch in $BRANCHES; do\n            case \"$branch\" in\n              main|master|develop|dev|staging|production) continue ;;\n            esac\n            LAST_COMMIT=$(gh api \"repos/{owner}/{repo}/branches/$branch\" --jq '.commit.commit.author.date' 2>/dev/null || true)\n            if [ -n \"$LAST_COMMIT\" ] && [ -n \"$CUTOFF\" ] && [[ \"$LAST_COMMIT\" < \"$CUTOFF\" ]]; then\n              echo \"Deleting stale branch: $branch (last: $LAST_COMMIT)\"\n              git push origin --delete \"$branch\" 2>&1 || echo \"Failed to delete $branch\"\n            fi\n          done\n"
     },
     {
       "id": "opencode-todo-issues",
       "file": "opencode-todo-issues.yml",
       "name": "OpenCode Todo-to-Issues",
       "description": "",
-      "content": "name: OpenCode Todo-to-Issues\n\non:\n  workflow_dispatch:\n    inputs:\n      focus:\n        description: \"Optional: only process this section/title from todo.md (substring match)\"\n        required: false\n        type: string\n  schedule:\n    - cron: \"0 6 * * 3\" # Wednesday 06:00 UTC\n\nconcurrency:\n  group: opencode-todo-issues\n  cancel-in-progress: true\n\npermissions:\n  contents: write\n  issues: write\n\njobs:\n  create-issues:\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Run opencode to create issues from todo.md\n        uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          timeout-minutes: \"18\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt: |\n            Task: Create GitHub issues from open tasks in todo.md.\n\n            Steps:\n            1. Check if todo.md exists. If not, exit immediately with a short\n               message (\"No todo.md found\") and create NO issues.\n            2. Read todo.md fully. Collect all open tasks (marked with \"- [ ]\"\n               checkboxes) and any items noted as \"Tracking open GitHub issues\".\n               Focus area (optional): ${{ github.event.inputs.focus || 'all open items' }}\n            3. Group related items into logical issues (one issue per logical\n               task, not one per line).\n            4. For each group, create exactly ONE GitHub issue with:\n               - Descriptive title (short, clear)\n               - Body containing: context, affected files/functions (with line\n                 numbers from todo.md), acceptance criteria, and the todo.md text.\n            5. Assign appropriate labels using `gh issue create --label`:\n               - Bug/security issue -> `bug` (+ `security` for security findings)\n               - New feature -> `enhancement`\n               - Performance -> `perf`\n               - UX/Design -> `ux`\n               - Documentation -> `documentation`\n               - CI/Workflows/Build -> `ci`\n               Create missing labels first with `gh label create`. If label\n               creation fails (e.g. 403), create the issue with the best\n               matching existing label and note this in the summary.\n            6. Use the GitHub API via $GITHUB_TOKEN (the gh CLI is\n               authenticated as GitHub Actions).\n            7. Skip duplicates -- list existing issues first and compare titles.\n\n            IMPORTANT:\n            - Do NOT modify any files, commit anything, or create a pull request.\n            - Every created issue MUST have at least one matching label.\n            - Respond with a summary of created issues (number, title, label)\n              and skipped duplicates.\n"
+      "content": "name: OpenCode Todo-to-Issues\n\non:\n  workflow_dispatch:\n    inputs:\n      focus:\n        description: \"Optional: only process this section/title from todo.md (substring match)\"\n        required: false\n        type: string\n  schedule:\n    - cron: \"0 6 * * 3\" # Wednesday 06:00 UTC\n\nconcurrency:\n  group: opencode-todo-issues\n  cancel-in-progress: true\n\npermissions:\n  contents: write\n  issues: write\n\njobs:\n  create-issues:\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - name: Configure git identity\n        shell: bash\n        run: |\n          git config --global user.name \"GitHub Actions\"\n          git config --global user.email \"github-actions[bot]@users.noreply.github.com\"\n\n      - name: Run opencode to create issues from todo.md\n        uses: OseMine/workflows/.github/actions/opencode@v2\n        with:\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ vars.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          timeout-minutes: \"18\"\n          git-identity: GitHub Actions <github-actions[bot]@users.noreply.github.com>\n          prompt: |\n            Task: Create GitHub issues from open tasks in todo.md.\n\n            Steps:\n            1. Check if todo.md exists. If not, exit immediately with a short\n               message (\"No todo.md found\") and create NO issues.\n            2. Read todo.md fully. Collect all open tasks (marked with \"- [ ]\"\n               checkboxes) and any items noted as \"Tracking open GitHub issues\".\n               Focus area (optional): ${{ github.event.inputs.focus || 'all open items' }}\n            3. Group related items into logical issues (one issue per logical\n               task, not one per line).\n            4. For each group, create exactly ONE GitHub issue with:\n               - Descriptive title (short, clear)\n               - Body containing: context, affected files/functions (with line\n                 numbers from todo.md), acceptance criteria, and the todo.md text.\n            5. Assign appropriate labels using `gh issue create --label`:\n               - Bug/security issue -> `bug` (+ `security` for security findings)\n               - New feature -> `enhancement`\n               - Performance -> `perf`\n               - UX/Design -> `ux`\n               - Documentation -> `documentation`\n               - CI/Workflows/Build -> `ci`\n               Create missing labels first with `gh label create`. If label\n               creation fails (e.g. 403), create the issue with the best\n               matching existing label and note this in the summary.\n            6. Use the GitHub API via $GITHUB_TOKEN (the gh CLI is\n               authenticated as GitHub Actions).\n            7. Skip duplicates -- list existing issues first and compare titles.\n\n            IMPORTANT:\n            - Do NOT modify any files, commit anything, or create a pull request.\n            - Every created issue MUST have at least one matching label.\n            - Respond with a summary of created issues (number, title, label)\n              and skipped duplicates.\n"
     },
     {
       "id": "opencode",
       "file": "opencode.yml",
       "name": "OpenCode Automation",
       "description": "Thin OpenCode automation — copy into any project, replace the PROMPT,",
-      "content": "# Thin OpenCode automation — copy into any project, replace the PROMPT,\n# done. Git identity, model fallback chain, and the runner logic live in the\n# shared `opencode` action and update automatically at @v1 (or @latest).\n#\n# Triggers as needed: workflow_dispatch, schedule, issue_comment, issues.\nname: OpenCode Automation\n\non:\n  workflow_dispatch:\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\npermissions:\n  contents: write\n  issues: write\n  pull-requests: write\n\njobs:\n  opencode:\n    name: OpenCode task\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - uses: OseMine/workflows/.github/actions/opencode@v1\n        with:\n          prompt: |\n            REPLACE_WITH_PROJECT_PROMPT\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}\n          timeout-minutes: \"50\"\n\n      - name: Commit changes (if any)\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          if [ -n \"$(git status --porcelain)\" ]; then\n            git add -A\n            git commit -m \"chore: opencode automation [skip ci]\"\n            git push origin HEAD\n          else\n            echo \"no changes to commit\"\n          fi"
+      "content": "# Thin OpenCode automation — copy into any project, replace the PROMPT,\n# done. Git identity, model fallback chain, and the runner logic live in the\n# shared `opencode` action and update automatically at @v2 (or @latest).\n#\n# Triggers as needed: workflow_dispatch, schedule, issue_comment, issues.\nname: OpenCode Automation\n\non:\n  workflow_dispatch:\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\npermissions:\n  contents: write\n  issues: write\n  pull-requests: write\n\njobs:\n  opencode:\n    name: OpenCode task\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n          persist-credentials: true\n\n      - uses: OseMine/workflows/.github/actions/opencode@v2\n        with:\n          prompt: |\n            REPLACE_WITH_PROJECT_PROMPT\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}\n          timeout-minutes: \"50\"\n\n      - name: Commit changes (if any)\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          if [ -n \"$(git status --porcelain)\" ]; then\n            git add -A\n            git commit -m \"chore: opencode automation [skip ci]\"\n            git push origin HEAD\n          else\n            echo \"no changes to commit\"\n          fi"
     },
     {
       "id": "release",
       "file": "release.yml",
       "name": "Release",
       "description": "Thin release workflow - copy into any project, set `language` + optional",
-      "content": "# Thin release workflow - copy into any project, set `language` + optional\n# `build` flags. Everything (meta/semver, builds, security gate, AI release\n# notes, release + SHA256SUMS) lives in the shared `release-all` action.\n#\n# -- Pin vs rolling tag policy ------------------------------------------\n#   @v1      stable - receives non-breaking fixes; recommended for production\n#   @latest  rolling - latest published state; friendly to new features\n#   @main    branch head - bleeding edge; only for testing\n# When a fix ships here, main moves first, then v1 is updated. Internal\n# cross-references in this library are pinned to @v1, so whatever you pin,\n# the whole tree stays consistent. Change the ref below (and in\n# release-all's sibling steps) when you want new behaviour.\n#\n# Primary trigger: workflow_dispatch (Actions tab → Run workflow).\n# Version is auto-detected from pubspec.yaml / Cargo.toml / package.json, or\n# override via the `version` input. Tag push (`v*`) remains supported as a\n# secondary trigger.\nname: Release\n\non:\n  workflow_dispatch:\n    inputs:\n      version:\n        description: \"Version to release (e.g. 1.2.3). Empty = auto-detect from project files\"\n        required: false\n        type: string\n      prerelease:\n        description: \"Mark as prerelease\"\n        required: false\n        type: boolean\n        default: false\n      draft:\n        description: \"Create as draft\"\n        required: false\n        type: boolean\n        default: false\n      build:\n        description: \"Comma-separated build flags: cargo, tauri, plugin, installer, python, android, ios, flutter, c, cpp, csharp, java, all\"\n        required: false\n        type: string\n        default: all\n  push:\n    tags: [\"v*\"]\n\npermissions:\n  contents: write\n  id-token: write\n\njobs:\n  release:\n    name: Release\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/release-all@v1\n        with:\n          language: auto            # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle\n          build: ${{ github.event.inputs.build || 'all' }}\n          release-tag: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || '' }}\n          min-rating: \"7\"           # security gate 0-10; 0 disables\n          draft: ${{ github.event.inputs.draft || 'false' }}\n          prerelease: ${{ github.event.inputs.prerelease || 'false' }}\n\n          # -- AI provider for the SECURITY GATE -------------------------\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n\n          # -- AI provider for RELEASE NOTES (optional, overrides above) -\n          # Use a different provider/model for notes (e.g. mistral for a\n          # fast model) while the security gate keeps the generic one.\n          # notes-mode: auto           # auto | file | ai-required\n          # notes-file: CHANGELOG.md   # used only when AI fails (auto mode)\n          # notes-provider: mistral\n          # notes-model: codestral\n          # notes-api-key: ${{ secrets.MISTRAL_API_KEY }}\n          # notes-fallback-provider: opencode\n          # notes-fallback-model: auto-free\n          # notes-fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}\n\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}"
+      "content": "# Thin release workflow - copy into any project, set `language` + optional\n# `build` flags. Everything (meta/semver, builds, security gate, AI release\n# notes, release + SHA256SUMS) lives in the shared `release-all` action.\n#\n# -- Pin vs rolling tag policy ------------------------------------------\n#   @v2      stable - receives non-breaking fixes; recommended for production\n#   @latest  rolling - latest published state; friendly to new features\n#   @main    branch head - bleeding edge; only for testing\n# When a fix ships here, main moves first, then v1 is updated. Internal\n# cross-references in this library are pinned to @v2, so whatever you pin,\n# the whole tree stays consistent. Change the ref below (and in\n# release-all's sibling steps) when you want new behaviour.\n#\n# Primary trigger: workflow_dispatch (Actions tab → Run workflow).\n# Version is auto-detected from pubspec.yaml / Cargo.toml / package.json, or\n# override via the `version` input. Tag push (`v*`) remains supported as a\n# secondary trigger.\nname: Release\n\non:\n  workflow_dispatch:\n    inputs:\n      version:\n        description: \"Version to release (e.g. 1.2.3). Empty = auto-detect from project files\"\n        required: false\n        type: string\n      prerelease:\n        description: \"Mark as prerelease\"\n        required: false\n        type: boolean\n        default: false\n      draft:\n        description: \"Create as draft\"\n        required: false\n        type: boolean\n        default: false\n      build:\n        description: \"Comma-separated build flags: cargo, tauri, plugin, installer, python, android, ios, flutter, c, cpp, csharp, java, all\"\n        required: false\n        type: string\n        default: all\n  push:\n    tags: [\"v*\"]\n\npermissions:\n  contents: write\n  id-token: write\n\njobs:\n  release:\n    name: Release\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/release-all@v2\n        with:\n          language: auto            # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle\n          build: ${{ github.event.inputs.build || 'all' }}\n          release-tag: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || '' }}\n          min-rating: \"7\"           # security gate 0-10; 0 disables\n          draft: ${{ github.event.inputs.draft || 'false' }}\n          prerelease: ${{ github.event.inputs.prerelease || 'false' }}\n\n          # -- AI provider for the SECURITY GATE -------------------------\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n\n          # -- AI provider for RELEASE NOTES (optional, overrides above) -\n          # Use a different provider/model for notes (e.g. mistral for a\n          # fast model) while the security gate keeps the generic one.\n          # notes-mode: auto           # auto | file | ai-required\n          # notes-file: CHANGELOG.md   # used only when AI fails (auto mode)\n          # notes-provider: mistral\n          # notes-model: codestral\n          # notes-api-key: ${{ secrets.MISTRAL_API_KEY }}\n          # notes-fallback-provider: opencode\n          # notes-fallback-model: auto-free\n          # notes-fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}\n\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}"
     },
     {
       "id": "security",
       "file": "security.yml",
       "name": "Security",
       "description": "Thin security gate — copy into any project, wire OpenAI/Puter/VirusTotal",
-      "content": "# Thin security gate — copy into any project, wire OpenAI/Puter/VirusTotal\n# secrets, done. Trivy + cargo/npm audit + PHP hint + VirusTotal scan + AI\n# review, rating 0-10, fails the run below min-rating.\nname: Security\n\non:\n  push:\n  pull_request:\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\npermissions:\n  contents: read\n\njobs:\n  security:\n    name: Security gate\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/security@v1\n        with:\n          min-rating: \"7\"\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}\n          virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }} # optional (VIRUSTOTAL badge)\n          virustotal-files: \"target/release/*.exe dist/*.exe *.exe\" # space-separated globs\n          test-cmd: \"cargo test\"                                 # optional verification"
+      "content": "# Thin security gate — copy into any project, wire OpenAI/Puter/VirusTotal\n# secrets, done. Trivy + cargo/npm audit + PHP hint + VirusTotal scan + AI\n# review, rating 0-10, fails the run below min-rating.\nname: Security\n\non:\n  push:\n  pull_request:\n  schedule:\n    - cron: \"0 6 * * 1\" # Monday 06:00 UTC\n\npermissions:\n  contents: read\n\njobs:\n  security:\n    name: Security gate\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - uses: OseMine/workflows/.github/actions/security@v2\n        with:\n          min-rating: \"7\"\n          provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama\n          model: ${{ vars.AI_MODEL || 'auto-free' }}\n          api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}\n          fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}\n          fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}\n          # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---\n          # provider: custom\n          # model: my-model          # model id your API accepts\n          # custom-api-base: https://api.example.com/v1\n          # custom-api-key: ${{ secrets.CUSTOM_API_KEY }}\n          virustotal-api-key: ${{ secrets.VIRUSTOTAL_API_KEY }} # optional (VIRUSTOTAL badge)\n          virustotal-files: \"target/release/*.exe dist/*.exe *.exe\" # space-separated globs\n          test-cmd: \"cargo test\"                                 # optional verification"
     }
   ]
 }

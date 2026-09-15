@@ -42,7 +42,7 @@ runs:
         java-version: ${{ inputs.java-version }}
 
     - name: Setup Flutter
-      uses: OseMine/workflows/.github/actions/flutter-setup@v1
+      uses: OseMine/workflows/.github/actions/flutter-setup@v2
       with:
         native-cache-name: android
         native-cache-path: ~/.cache/flutter

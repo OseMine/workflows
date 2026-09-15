@@ -3,11 +3,11 @@
 # notes, release + SHA256SUMS) lives in the shared `release-all` action.
 #
 # -- Pin vs rolling tag policy ------------------------------------------
-#   @v1      stable - receives non-breaking fixes; recommended for production
+#   @v2      stable - receives non-breaking fixes; recommended for production
 #   @latest  rolling - latest published state; friendly to new features
 #   @main    branch head - bleeding edge; only for testing
 # When a fix ships here, main moves first, then v1 is updated. Internal
-# cross-references in this library are pinned to @v1, so whatever you pin,
+# cross-references in this library are pinned to @v2, so whatever you pin,
 # the whole tree stays consistent. Change the ref below (and in
 # release-all's sibling steps) when you want new behaviour.
 #
@@ -55,7 +55,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: OseMine/workflows/.github/actions/release-all@v1
+      - uses: OseMine/workflows/.github/actions/release-all@v2
         with:
           language: auto            # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle
           build: ${{ github.event.inputs.build || 'all' }}

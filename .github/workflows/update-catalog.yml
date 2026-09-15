@@ -7,6 +7,10 @@ on:
         description: "Path to the catalog.json file to update (relative to repo root)"
         required: false
         default: "catalog.json"
+  push:
+    tags:
+      - "v[0-9]*"
+    push: [tags]
 
 permissions:
   contents: write
@@ -41,9 +45,13 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -m "chore: regenerate catalog.json"
-            git push
+            if git symbolic-ref -q HEAD >/dev/null 2>&1; then
+              git add -A
+              git commit -m "chore: regenerate catalog.json"
+              git push
+            else
+              echo "warning: detached HEAD (tag run) - catalog.json changed but not pushed"
+            fi
           else
             echo "catalog.json up to date"
           fi
