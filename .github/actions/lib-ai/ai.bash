@@ -372,36 +372,71 @@ ai_prepare() {
 }
 
 # ── AI output sanitisation & quality checks ─────────────────────────
-# Strips ANSI escape sequences and non-printable control characters from
-# stdin.  Useful for cleaning terminal/TUI garbage from opencode output
-# before treating it as release notes or review findings.
+# Strips ANSI escape sequences, OSC title sequences, cursor show/hide
+# sequences and non-printable control characters from stdin.  Useful for
+# cleaning terminal/TUI garbage from opencode output before treating it as
+# release notes or review findings.
 ai_sanitize_ai_output() {
-  perl -pe '
+  perl -CS -pe '
+    no warnings "utf8";
+    s/\x1b\[\?[0-9;]*[hl]//g;    # cursor hide/show (?25l / ?25h)
+    s/\x1b\][^\a\r]+(\a|\x1b\\)//g;  # OSC title/status (BEL or ESC-backslash end)
     s/\x1b\[[0-9;]*[A-Za-z]//g;   # CSI sequences
     s/\x1b\[[0-9;]*[~]//g;        # CSI with ~ suffix
     s/\x1b[()][AB012]//g;         # charset selects
-    s/\x1b[=>]//g;                 # keypad / locking shifts
+    s/\x1b[=>]//g;                # keypad / locking shifts
     s/\r//g;                       # carriage returns
     s/[\x00-\x08\x0B\x0C\x0E-\x1F]//g;  # control chars (keep \t \n)
+    s/[\x{2400}-\x{25FF}\x{2800}-\x{28FF}]//g;  # box-drawing + braille spinners
   '
 }
 
+# Extract the final assistant text from `opencode --format json` NDJSON event
+# stream on stdin.  Prints only the text of the last non-temporary assistant
+# text part - a deterministic final answer with zero TUI residue.
+# (The program runs from a temp file: multi-line `node -e` args can break on
+# Windows runners, so we never pass multi-line code through -e.)
+ai_extract_text() {
+  local tmp
+  tmp=$(mktemp)
+  cat > "$tmp" <<'NODE'
+const fs = require("fs");
+let out = "";
+const rl = require("readline").createInterface({ input: process.stdin });
+rl.on("line", (line) => {
+  try {
+    const ev = JSON.parse(line);
+    const part = ev && ev.part;
+    if (part && part.type === "text" && !part.temporary &&
+        (!part.role || part.role === "assistant") && part.text) out = part.text;
+  } catch (_) {}
+});
+rl.on("close", () => fs.writeSync(1, out));
+NODE
+  node "$tmp"
+  local rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
+
 # Validate that a release-notes file contains real note-like content after
-# stripping ANSI garbage.  Returns 0 when the file looks usable, 1 when it
-# is too short, empty, or just noise.
+# cleaning.  Returns 0 when the file looks usable, 1 when it is empty, too
+# short, still full of TUI garbage, or has no markdown structure at all.
 #   $1 = path to the notes file
 ai_is_valid_notes() {
   local file="$1"
   [ -s "$file" ] || return 1
-  local clean
+  local clean len
   clean=$(cat "$file" | ai_sanitize_ai_output)
-  local len=${#clean}
-  # After stripping, < 50 chars is almost certainly garbage or an error echo
+  len=${#clean}
+  # After cleaning, < 50 chars is almost certainly garbage or an error echo
   [ "$len" -lt 50 ] && return 1
-  # >= 200 chars of real text is almost certainly usable even without markdown
-  [ "$len" -ge 200 ] && return 0
-  # 50–199 chars: require at least one heading or bullet to confirm it looks
-  # like structured release notes (not just an error message that happened to
-  # be long enough).
+  # No escape/control sequences or Unicode symbol-block chars may survive
+  # (spinner/box-drawing residue would have been stripped above, but a file
+  # that still carries them is a TUI dump, not notes).
+  printf '%s\n' "$clean" | perl -CS -ne 'exit 1 if /[\x1b\x00-\x08\x0B\x0C\x0E-\x1F\x{2400}-\x{28FF}]/' || return 1
+  # Must look like structured release notes: at least one markdown heading or
+  # bullet, regardless of length (a long log/TUI dump has no markdown and must
+  # be rejected even when it is hundreds of characters).
   echo "$clean" | grep -qE '^(#{1,6} |[*+-] )'
 }

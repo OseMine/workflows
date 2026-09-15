@@ -261,14 +261,28 @@ runs:
           echo "- No finding without a concrete file reference; no style questions, no speculation."
           echo "- If there are no findings, return an empty findings array."
           echo ""
-          echo 'Write the result as JSON to security-results/ai-findings.json (directory exists), exactly in this format:'
+          echo "Output ONLY the JSON object. No prose around it, no markdown code fences, and do NOT write any file. Exactly this format:"
           echo '{"findings":[{"title":"<short title>","severity":"critical|high|medium|low","file":"<path>","detail":"<1-2 sentences>"}],"summary":"<one sentence overall assessment>"}'
         } > ai-review-prompt.txt
 
         try_review() {
-          local m="$1"
+          local m="$1" prompt raw logf
           echo "--- trying AI review model: $m ---"
-          timeout 900 bash -c "$OPENCODE_CMD run --model \"$m\" \"$(cat ai-review-prompt.txt)\""
+          prompt=$(cat ai-review-prompt.txt)
+          raw="security-results/ai-findings.raw"
+          logf="security-results/ai-review.log"
+          # stdout-only: --format json emits NDJSON events, --print-logs keeps
+          # TUI/log noise on stderr where it belongs.
+          timeout 900 bash -c "$OPENCODE_CMD run --format json --print-logs --auto --model \"\$1\" \"\$2\"" \
+            _ "$m" "$prompt" > "$raw" 2>"$logf" || \
+            echo "::warning::opencode review process exited abnormally (details in security-results/ai-review.log)"
+          # Extract the assistant answer deterministically - the parse step
+          # reads ai-findings.json from this.
+          if ai_extract_text < "$raw" > "security-results/ai-findings.json" \
+              && [ -s "security-results/ai-findings.json" ]; then
+            return 0
+          fi
+          return 1
         }
 
         FREE1=0; [ "$MODEL1" = "auto-free" ] && FREE1=1
@@ -296,7 +310,8 @@ runs:
         node -e '
           const fs = require("fs");
           try {
-            const raw = fs.readFileSync("security-results/ai-findings.json", "utf8");
+            const raw = fs.readFileSync("security-results/ai-findings.json", "utf8")
+              .replace(/^```(?:json)?\s*[\r\n]+/, "").replace(/```\s*$/, "");
             const obj = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
             if (!Array.isArray(obj.findings)) throw new Error("findings is not an array");
             const allowed = ["critical", "high", "medium", "low"];

@@ -481,15 +481,34 @@ runs:
         run_notes() {
           local m="$1"
           echo "--- release notes via: $m ---"
-          local tmp
+          local tmp logf prompt ok=0
           tmp=$(mktemp)
-          npx --yes "$OPENCODE_PKG" run --auto --model "$m" \
-            "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." \
-            > "$tmp" 2>&1 || { rm -f "$tmp"; return 1; }
-          # Sanitise ANSI / TUI garbage and validate quality
-          ai_sanitize_ai_output < "$tmp" > "$NOTES"
-          rm -f "$tmp"
-          if ! ai_is_valid_notes "$NOTES"; then
+          logf=$(mktemp)
+          prompt="Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble."
+          # Attempt 1: --format json emits NDJSON events; --print-logs keeps the
+          # TUI/log noise on stderr so stdout has none.  Extract assistant text.
+          if npx --yes "$OPENCODE_PKG" run --format json --print-logs --auto --model "$m" \
+              "$prompt" 2>"$logf" | ai_extract_text > "$tmp" \
+              && ai_sanitize_ai_output < "$tmp" > "$NOTES" \
+              && ai_is_valid_notes "$NOTES"; then
+            ok=1
+          fi
+          # Attempt 2 (JSON path unusable / older opencode): plain stdout capture.
+          if [ "$ok" -eq 0 ]; then
+            rm -f "$NOTES"
+            echo "::debug::JSON notes extraction unusable, retrying in plain text mode"
+            npx --yes "$OPENCODE_PKG" run --print-logs --auto --model "$m" \
+                "$prompt" 2>"$logf" > "$tmp" || {
+              echo "::warning::opencode invocation failed for $m (see log below)"
+              cat "$logf" >&2 || true
+              rm -f "$tmp" "$logf"
+              return 1
+            }
+            ai_sanitize_ai_output < "$tmp" > "$NOTES" \
+              && ai_is_valid_notes "$NOTES"
+          fi
+          rm -f "$tmp" "$logf"
+          if [ "$ok" -eq 0 ]; then
             echo "::warning::AI notes output invalid (garbage or insufficient content) from $m"
             rm -f "$NOTES"
             return 1
