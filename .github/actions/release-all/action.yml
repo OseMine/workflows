@@ -171,6 +171,7 @@ runs:
                 pubspec.yaml) VERSION=$(grep -m1 '^version:' "$f" | awk '{print $2}' | tr -d "'\"") ;;
                 Cargo.toml)   VERSION=$(grep -m1 '^version' "$f" | sed -E 's/^version\s*=\s*"([^"]+)"/\1/') ;;
                 package.json) VERSION=$(grep -m1 '"version"' "$f" | sed -E 's/.*"version"\s*:\s*"([^"]+)".*/\1/') ;;
+                pyproject.toml) VERSION=$(grep -m1 '^version' "$f" | sed -E 's/^version\s*=\s*"?("?)[^"]*"?\s*$/\1/') ;;
               esac
               [ -n "$VERSION" ] && break
             done
