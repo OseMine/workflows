@@ -48,14 +48,14 @@ function fallbackCatalog() {
   if (catalog) return;
   catalog = {
     actions: [
-      { id: "ci", name: "CI (language dispatcher)", description: "Setup, lint, and test a project based on its language.", uses: "OseMine/workflows/.github/actions/ci@v1", inputs: [
+      { id: "ci", name: "CI (language dispatcher)", description: "Setup, lint, and test a project based on its language.", uses: "OseMine/workflows/.github/actions/ci@v2", inputs: [
         { id: "language", description: "Main stack: auto, rust, node, python, flutter, kmp, php, lua", default: "auto", boolean: false },
       ], outputs: [] },
-      { id: "build", name: "Build artifacts (language dispatcher)", description: "Detects languages and dispatches to all per-language build actions.", uses: "OseMine/workflows/.github/actions/build@v1", inputs: [
+      { id: "build", name: "Build artifacts (language dispatcher)", description: "Detects languages and dispatches to all per-language build actions.", uses: "OseMine/workflows/.github/actions/build@v2", inputs: [
         { id: "language", description: "auto | rust | c | cpp | csharp | maven | gradle | python | flutter | android | ios | kmp", default: "auto", boolean: false },
         { id: "build", description: "cargo, tauri, python, flutter, android, ios, kmp, c, cpp, csharp, java, all", default: "all", boolean: false },
       ], outputs: [] },
-      { id: "security", name: "Security gate", description: "Trivy + cargo-audit + npm audit + PHP lint + VirusTotal + AI review.", uses: "OseMine/workflows/.github/actions/security@v1", inputs: [
+      { id: "security", name: "Security gate", description: "Trivy + cargo-audit + npm audit + PHP lint + VirusTotal + AI review.", uses: "OseMine/workflows/.github/actions/security@v2", inputs: [
         { id: "min-rating", description: "Minimum rating 0-10 to pass", default: "7", boolean: false },
       ], outputs: [] },
     ],
