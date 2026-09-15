@@ -37,9 +37,8 @@ own org/repo throughout `templates/` and `.github/actions/`.
 | Ref | Meaning | When to use |
 |-----|---------|-------------|
 | `@v2` | Immutable release tag | Current stable - production |
-| `@v1` | Frozen previous major | Legacy - migrate to `@v2` |
-| `@latest` | Rolling tag = newest `main` commit | Track fixes immediately |
-| `@main` | Git branch head | Dev / bleeding edge |
+| `@latest` | Always the latest version tag | Follow the current release without pinning |
+| `@main` | Branch head (bleeding edge) | Track rolling development |
 
 Internal actions reference each other via `@v2`, so a `@v2`-pinned build stays
 fully self-consistent.
