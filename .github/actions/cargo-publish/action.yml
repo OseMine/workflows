@@ -22,7 +22,7 @@ runs:
         echo "::group::cargo publish preflight"
         echo "cargo_registry_token_set: $CARGO_TOKEN_SET"
         if [ "$CARGO_TOKEN_SET" = "no" ]; then
-          echo "::error::cargo-publish requires a crates.io API token. Set inputs.token (e.g. the calling workflow's secrets.CARGO_REGISTRY_TOKEN); create one at https://crates.io/settings/tokens with 'publish-new' or 'publish-update' scope."
+          echo "::error::cargo-publish requires a crates.io API token. Set inputs.token (e.g. the calling workflow's registry token under the name CARGO_REGISTRY_TOKEN); create one at https://crates.io/settings/tokens with 'publish-new' or 'publish-update' scope."
           exit 1
         fi
         if [ ! -f Cargo.toml ]; then
