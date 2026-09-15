@@ -1,3 +1,8 @@
+# Pin policy: use @v1 for stable (receives non-breaking fixes), @latest for
+# rolling, @main only for testing.  All internal cross-references in this
+# library are pinned to @v1 so a consumer pinning @v1 gets a consistent,
+ # self-contained tree.  When you fork or copy a template, the pinned ref is
+# the one thing you update when you want new behaviour.
 name: Release
 description: >-
   Unified release pipeline. Two modes:
@@ -112,6 +117,32 @@ inputs:
     description: "Deprecated alias for model."
     required: false
     default: ""
+  notes-mode:
+    description: >-
+      How release notes are generated:
+      auto  = AI first, fall back to notes-file then git-log.
+      file  = use notes-file directly (skip AI).
+      ai-required = AI only; fail the step if AI fails or output is invalid.
+    required: false
+    default: auto
+  notes-provider:
+    description: "AI provider override for release notes (defaults to `provider`)."
+    required: false
+  notes-model:
+    description: "AI model override for release notes (defaults to `model`)."
+    required: false
+  notes-api-key:
+    description: "API key override for release notes provider (defaults to `api-key`)."
+    required: false
+  notes-fallback-provider:
+    description: "Fallback AI provider override for release notes (defaults to `fallback-provider`)."
+    required: false
+  notes-fallback-model:
+    description: "Fallback AI model override for release notes (defaults to `fallback-model`)."
+    required: false
+  notes-fallback-api-key:
+    description: "API key for release notes fallback provider (defaults to `fallback-api-key`)."
+    required: false
 
 runs:
   using: composite
@@ -229,6 +260,33 @@ runs:
           [ -z "$LANG" ] && LANG="none"
         fi
         echo "language=$LANG" >> "$GITHUB_OUTPUT"
+
+    - name: Preflight - resolved config
+      if: inputs.mode == 'full'
+      shell: bash
+      env:
+        NOTES_MODE: ${{ inputs.notes-mode }}
+        NOTES_FILE: ${{ inputs.notes-file }}
+        NOTES_PROV: ${{ inputs.notes-provider }}
+        SEC_PROV: ${{ inputs.provider }}
+        NOTES_KEY_SET: ${{ inputs.notes-api-key != '' && 'yes' || 'no' }}
+        SEC_KEY_SET: ${{ inputs.api-key != '' && 'yes' || (inputs.opencode-api-key != '' && 'yes' || 'no') }}
+      run: |-
+        echo "::group::Resolved release config"
+        echo "mode:          ${{ inputs.mode }}"
+        echo "language:      ${{ steps.meta.outputs.language }}"
+        echo "build_flags:   ${{ steps.meta.outputs.build_flags }}"
+        echo "version:       ${{ steps.meta.outputs.version }} (tag ${{ steps.meta.outputs.release_tag }})"
+        echo "security:      ${{ inputs.security }} (min-rating ${{ inputs.min-rating }})"
+        echo "sec  provider: $SEC_PROV  key_set=$SEC_KEY_SET"
+        echo "notes_mode:    $NOTES_MODE"
+        echo "notes_file:    ${NOTES_FILE:-<none>}"
+        echo "notes_provider:${NOTES_PROV:-<inherits from sec provider>}"
+        echo "notes_key_set: $NOTES_KEY_SET"
+        echo "draft:         ${{ inputs.draft }}"
+        echo "prerelease:    ${{ inputs.prerelease }}"
+        echo "generate_notes:${{ inputs.generate-notes }}"
+        echo "::endgroup::"
 
     - name: Run security gate
       if: ${{ inputs.mode == 'full' && inputs.security == 'true' }}
@@ -377,12 +435,16 @@ runs:
         RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
         RELEASE_NAME: ${{ steps.meta.outputs.release_name }}
         OPENCODE_PKG: opencode-ai@${{ inputs.opencode-version }}
-        PROV1: ${{ inputs.provider }}
-        MODEL1: ${{ inputs.model }}
-        KEY1: ${{ inputs.api-key != '' && inputs.api-key || inputs.opencode-api-key }}
-        PROV2: ${{ inputs.fallback-provider }}
-        MODEL2: ${{ inputs.fallback-model }}
-        KEY2: ${{ inputs.fallback-api-key }}
+        NOTES_MODE: ${{ inputs.notes-mode || 'auto' }}
+        NOTES_FILE: ${{ inputs.notes-file }}
+        RELEASE_NOTES_CMD: ${{ inputs.release-notes-command }}
+        # Per-purpose provider overrides: notes-provider falls back to sec provider
+        PROV1: ${{ inputs.notes-provider != '' && inputs.notes-provider || inputs.provider }}
+        MODEL1: ${{ inputs.notes-model != '' && inputs.notes-model || inputs.model }}
+        KEY1: ${{ inputs.notes-api-key != '' && inputs.notes-api-key || (inputs.api-key != '' && inputs.api-key || inputs.opencode-api-key) }}
+        PROV2: ${{ inputs.notes-fallback-provider != '' && inputs.notes-fallback-provider || inputs.fallback-provider }}
+        MODEL2: ${{ inputs.notes-fallback-model != '' && inputs.notes-fallback-model || inputs.fallback-model }}
+        KEY2: ${{ inputs.notes-fallback-api-key != '' && inputs.notes-fallback-api-key || inputs.fallback-api-key }}
         CUSTOM_BASE: ${{ inputs.custom-api-base }}
         CUSTOM_KEY: ${{ inputs.custom-api-key }}
         CUSTOM_MODEL: ${{ inputs.custom-model }}
@@ -393,51 +455,91 @@ runs:
         mkdir -p reports
         NOTES="reports/release-notes-${RELEASE_TAG}.md"
 
-        if [ -n "${{ inputs.notes-file }}" ] && [ -f "${{ inputs.notes-file }}" ]; then
-          cp "${{ inputs.notes-file }}" "$NOTES"
-          echo "Using pre-written notes from ${{ inputs.notes-file }}"
+        # -- file-only mode -------------------------------------------
+        if [ "$NOTES_MODE" = "file" ]; then
+          if [ -z "$NOTES_FILE" ] || [ ! -f "$NOTES_FILE" ]; then
+            echo "::error::notes-mode=file but notes-file '$NOTES_FILE' not found or empty"
+            exit 1
+          fi
+          cp "$NOTES_FILE" "$NOTES"
+          echo "Using pre-written notes from $NOTES_FILE"
           echo "path=$NOTES" >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
+        # -- custom command (bypasses AI entirely) ---------------------
+        if [ -n "$RELEASE_NOTES_CMD" ]; then
+          eval "$RELEASE_NOTES_CMD" > "$NOTES" 2>&1 || true
+          if [ -s "$NOTES" ]; then
+            echo "path=$NOTES" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::warning::release-notes-command produced empty output"
+        fi
+
+        # -- AI notes -------------------------------------------------
         run_notes() {
           local m="$1"
           echo "--- release notes via: $m ---"
+          local tmp
+          tmp=$(mktemp)
           npx --yes "$OPENCODE_PKG" run --auto --model "$m" \
             "Write concise release notes for version ${RELEASE_NAME} from git history. Include categories: Features, Fixes, Breaking. Use bullets. No preamble." \
-            > "$NOTES" 2>&1 || return 1
+            > "$tmp" 2>&1 || { rm -f "$tmp"; return 1; }
+          # Sanitise ANSI / TUI garbage and validate quality
+          ai_sanitize_ai_output < "$tmp" > "$NOTES"
+          rm -f "$tmp"
+          if ! ai_is_valid_notes "$NOTES"; then
+            echo "::warning::AI notes output invalid (garbage or insufficient content) from $m"
+            rm -f "$NOTES"
+            return 1
+          fi
+          return 0
         }
 
-        wrote=0
-        if [ -n "${{ inputs.release-notes-command }}" ]; then
-          eval "${{ inputs.release-notes-command }}" > "$NOTES" 2>&1 || true
-          wrote=1
+        ai_ok=0
+        FREE1=0; [ "$MODEL1" = "auto-free" ] && FREE1=1
+        RESOLVED_MODEL1=$(ai_resolve "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
+        FULL1=$(ai_prepare "$RESOLVED_MODEL1" "$KEY1" "$FREE1") || FULL1=""
+        if [ -n "$FULL1" ] && run_notes "$FULL1"; then
+          ai_ok=1
         else
-          FREE1=0; [ "$MODEL1" = "auto-free" ] && FREE1=1
-          RESOLVED_MODEL1=$(ai_resolve "$MODEL1" "$PROV1" "$KEY1" "$PROV2" "$MODEL2" "$KEY2")
-          FULL1=$(ai_prepare "$RESOLVED_MODEL1" "$KEY1" "$FREE1") || FULL1=""
-          if [ -n "$FULL1" ] && run_notes "$FULL1"; then
-            wrote=1
+          echo "::warning::AI notes failed with $FULL1, trying fallback"
+          FREE2=0; [ "$MODEL2" = "auto-free" ] && FREE2=1
+          RESOLVED_MODEL2=$(ai_resolve "$MODEL2" "$PROV2" "$KEY2" "" "" "")
+          FULL2=$(ai_prepare "$RESOLVED_MODEL2" "$KEY2" "$FREE2") || FULL2=""
+          if [ -n "$FULL2" ] && run_notes "$FULL2"; then
+            ai_ok=1
           else
-            echo "::warning::AI notes failed with $FULL1, trying fallback"
-            FREE2=0; [ "$MODEL2" = "auto-free" ] && FREE2=1
-            RESOLVED_MODEL2=$(ai_resolve "$MODEL2" "$PROV2" "$KEY2" "" "" "")
-            FULL2=$(ai_prepare "$RESOLVED_MODEL2" "$KEY2" "$FREE2") || FULL2=""
-            if [ -n "$FULL2" ] && run_notes "$FULL2"; then
-              wrote=1
-            else
-              rm -f "$NOTES"
-            fi
+            echo "::warning::all AI notes providers failed"
           fi
         fi
 
-        if [ ! -s "$NOTES" ]; then
-          echo "## $RELEASE_NAME" > "$NOTES"
-          echo "" >> "$NOTES"
-          git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD" 2>/dev/null >> "$NOTES" || \
-            git log --oneline -20 >> "$NOTES" || true
-          echo "(notes generated from git log -- run with api-key for AI notes)" >> "$NOTES"
+        if [ "$ai_ok" -eq 1 ]; then
+          echo "path=$NOTES" >> "$GITHUB_OUTPUT"
+          exit 0
         fi
+
+        # -- AI failed ------------------------------------------------
+        if [ "$NOTES_MODE" = "ai-required" ]; then
+          echo "::error::AI release notes failed (mode=ai-required). Configure provider+api-key, or switch notes-mode to 'auto'."
+          exit 1
+        fi
+
+        # -- notes-file fallback (auto mode) --------------------------
+        if [ -n "$NOTES_FILE" ] && [ -f "$NOTES_FILE" ]; then
+          cp "$NOTES_FILE" "$NOTES"
+          echo "AI notes failed, using pre-written notes from $NOTES_FILE"
+          echo "path=$NOTES" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # -- git-log fallback -----------------------------------------
+        echo "## $RELEASE_NAME" > "$NOTES"
+        echo "" >> "$NOTES"
+        git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD" 2>/dev/null >> "$NOTES" || \
+          git log --oneline -20 >> "$NOTES" || true
+        echo "(notes generated from git log -- run with api-key for AI notes)" >> "$NOTES"
         echo "path=$NOTES" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub release

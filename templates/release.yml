@@ -1,7 +1,15 @@
-# Thin release workflow — copy into any project, set `language` + optional
+# Thin release workflow - copy into any project, set `language` + optional
 # `build` flags. Everything (meta/semver, builds, security gate, AI release
-# notes, release + SHA256SUMS) lives in the shared `release-all` action and
-# updates automatically at @v1 (or @latest for rolling updates).
+# notes, release + SHA256SUMS) lives in the shared `release-all` action.
+#
+# -- Pin vs rolling tag policy ------------------------------------------
+#   @v1      stable - receives non-breaking fixes; recommended for production
+#   @latest  rolling - latest published state; friendly to new features
+#   @main    branch head - bleeding edge; only for testing
+# When a fix ships here, main moves first, then v1 is updated. Internal
+# cross-references in this library are pinned to @v1, so whatever you pin,
+# the whole tree stays consistent. Change the ref below (and in
+# release-all's sibling steps) when you want new behaviour.
 #
 # Primary trigger: workflow_dispatch (Actions tab → Run workflow).
 # Version is auto-detected from pubspec.yaml / Cargo.toml / package.json, or
@@ -43,7 +51,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -55,12 +63,27 @@ jobs:
           min-rating: "7"           # security gate 0-10; 0 disables
           draft: ${{ github.event.inputs.draft || 'false' }}
           prerelease: ${{ github.event.inputs.prerelease || 'false' }}
+
+          # -- AI provider for the SECURITY GATE -------------------------
           provider: ${{ vars.AI_PROVIDER || 'opencode' }}            # opencode | google | openai | mistral | anthropic | x | deepseek | groq | puter | ollama
           model: ${{ vars.AI_MODEL || 'auto-free' }}
           api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
           fallback-provider: ${{ vars.AI_FALLBACK_PROVIDER || 'opencode' }}
           fallback-model: ${{ vars.AI_FALLBACK_MODEL || 'auto-free' }}
           fallback-api-key: ${{ secrets.AI_API_KEY || secrets.OPENCODE_API_KEY }}
+
+          # -- AI provider for RELEASE NOTES (optional, overrides above) -
+          # Use a different provider/model for notes (e.g. mistral for a
+          # fast model) while the security gate keeps the generic one.
+          # notes-mode: auto           # auto | file | ai-required
+          # notes-file: CHANGELOG.md   # used only when AI fails (auto mode)
+          # notes-provider: mistral
+          # notes-model: codestral
+          # notes-api-key: ${{ secrets.MISTRAL_API_KEY }}
+          # notes-fallback-provider: opencode
+          # notes-fallback-model: auto-free
+          # notes-fallback-api-key: ${{ secrets.OPENCODE_API_KEY }}
+
           # --- custom OpenAI-compatible API (optional, replaces provider/model above) ---
           # provider: custom
           # model: my-model          # model id your API accepts

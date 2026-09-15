@@ -370,3 +370,38 @@ ai_prepare() {
   ai_apply_key "$p" "$eff"
   echo "$p/$m"
 }
+
+# ── AI output sanitisation & quality checks ─────────────────────────
+# Strips ANSI escape sequences and non-printable control characters from
+# stdin.  Useful for cleaning terminal/TUI garbage from opencode output
+# before treating it as release notes or review findings.
+ai_sanitize_ai_output() {
+  perl -pe '
+    s/\x1b\[[0-9;]*[A-Za-z]//g;   # CSI sequences
+    s/\x1b\[[0-9;]*[~]//g;        # CSI with ~ suffix
+    s/\x1b[()][AB012]//g;         # charset selects
+    s/\x1b[=>]//g;                 # keypad / locking shifts
+    s/\r//g;                       # carriage returns
+    s/[\x00-\x08\x0B\x0C\x0E-\x1F]//g;  # control chars (keep \t \n)
+  '
+}
+
+# Validate that a release-notes file contains real note-like content after
+# stripping ANSI garbage.  Returns 0 when the file looks usable, 1 when it
+# is too short, empty, or just noise.
+#   $1 = path to the notes file
+ai_is_valid_notes() {
+  local file="$1"
+  [ -s "$file" ] || return 1
+  local clean
+  clean=$(cat "$file" | ai_sanitize_ai_output)
+  local len=${#clean}
+  # After stripping, < 50 chars is almost certainly garbage or an error echo
+  [ "$len" -lt 50 ] && return 1
+  # >= 200 chars of real text is almost certainly usable even without markdown
+  [ "$len" -ge 200 ] && return 0
+  # 50–199 chars: require at least one heading or bullet to confirm it looks
+  # like structured release notes (not just an error message that happened to
+  # be long enough).
+  echo "$clean" | grep -qE '^(#{1,6} |[*+-] )'
+}

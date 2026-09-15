@@ -13,6 +13,30 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Preflight - token + crate diagnostics
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CARGO_TOKEN_SET: ${{ inputs.token != '' && 'yes' || 'no' }}
+      run: |
+        echo "::group::cargo publish preflight"
+        echo "cargo_registry_token_set: $CARGO_TOKEN_SET"
+        if [ "$CARGO_TOKEN_SET" = "no" ]; then
+          echo "::error::cargo-publish requires a crates.io API token. Set inputs.token, e.g. \${{ secrets.CARGO_REGISTRY_TOKEN }} (create one at https://crates.io/settings/tokens with 'publish-new' or 'publish-update' scope)."
+          exit 1
+        fi
+        if [ ! -f Cargo.toml ]; then
+          echo "::error::no Cargo.toml in '${{ inputs.working-directory }}' - set inputs.working-directory to the crate root (e.g. crates/my-crate)."
+          exit 1
+        fi
+        grep -q '^name' Cargo.toml || {
+          echo "::error::Cargo.toml is missing a [package] name - not a publishable crate."
+          exit 1
+        }
+        echo "crate:  $(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+        echo "version:$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+        echo "::endgroup::"
+
     - name: Skip if version already published
       id: check
       shell: bash
@@ -32,8 +56,19 @@ runs:
 
     - name: Publish to crates.io
       if: steps.check.outputs.skip != 'true'
-      run: cargo publish
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
         CARGO_REGISTRY_TOKEN: ${{ inputs.token }}
+      run: |
+        set +e
+        cargo publish
+        RC=$?
+        set -e
+        if [ "$RC" -ne 0 ]; then
+          echo "::error::cargo publish failed (exit $RC). Common causes:"
+          echo "  - version already published (crates.io API lookup failed above, or skipped check) - expected for rerun"
+          echo "  - token lacks publish scope (pub-new/pub-update) or is wrong - regenerate at https://crates.io/settings/tokens"
+          echo "  - CARGO_REGISTRY_TOKEN was set: ${{ inputs.token != '' && 'yes' || 'NO - empty!' }}"
+          exit "$RC"
+        fi

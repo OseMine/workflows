@@ -13,7 +13,7 @@ jobs:
     name: Validate actions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Parse all action/template YAML
         run: |

@@ -57,7 +57,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: OseMine/workflows/.github/actions/build@v1
         with:
           language: auto        # auto | rust | tauri | c | cpp | csharp | maven | gradle | python | flutter | android | ios | kmp
@@ -74,7 +74,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: OseMine/workflows/.github/actions/ci@v1
         with:
           language: rust    # auto | rust | tauri | node | python | flutter | kmp | c | cpp | csharp | maven | gradle | php | lua
@@ -99,7 +99,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with: {fetch-depth: 0}
       - uses: OseMine/workflows/.github/actions/release-all@v1
         with:
@@ -127,7 +127,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: OseMine/workflows/.github/actions/security@v1
         with:
           min-rating: "7"
@@ -259,7 +259,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with: {fetch-depth: 0, persist-credentials: true}
       - uses: OseMine/workflows/.github/actions/opencode@v1
         with:
@@ -408,7 +408,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: OseMine/workflows/.github/actions/ci@v1
         with:
           language: tauri

@@ -1,0 +1,4 @@
+name: update Cataglog
+on:
+  workflow_dispatch:
+    inputs:
