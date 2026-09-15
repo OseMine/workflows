@@ -1,4 +1,49 @@
-name: update Cataglog
+name: update Catalog
+
 on:
   workflow_dispatch:
     inputs:
+      catalog:
+        description: "Path to the catalog.json file to update (relative to repo root)"
+        required: false
+        default: "catalog.json"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: Regenerate catalog.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate catalog.json
+        run: |
+          set -euo pipefail
+          python3 scripts/build-catalog.py
+          TARGET="${{ inputs.catalog }}"
+          if [ "$TARGET" != "catalog.json" ]; then
+            cp catalog.json "$TARGET"
+            echo "copied regenerated catalog to $TARGET"
+          fi
+
+      - name: Commit and push changes
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore: regenerate catalog.json"
+            git push
+          else
+            echo "catalog.json up to date"
+          fi
